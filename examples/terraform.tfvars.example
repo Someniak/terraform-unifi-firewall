@@ -1,0 +1,4 @@
+unifi_host    = "https://<your-unifi-ip>/proxy/network/integration"
+unifi_api_key = "<your-api-key>"
+unifi_site_id = "default"
+unifi_insecure = true

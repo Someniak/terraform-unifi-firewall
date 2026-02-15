@@ -1,0 +1,21 @@
+# Binary files
+terraform-provider-unifi
+bin/
+
+# Terraform files
+.terraform/
+.terraform.lock.hcl
+*.tfvars
+*.tfvars.json
+*.tfstate*
+
+# Go files
+vendor/
+*.out
+*.test
+
+# OS/IDE files
+.DS_Store
+.vscode/
+.idea/
+.env
