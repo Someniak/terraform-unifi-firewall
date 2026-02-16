@@ -40,15 +40,44 @@ type SourceDestModel struct {
 }
 
 type TrafficFilterModel struct {
-	Type         types.String       `tfsdk:"type"`
-	PortFilter   *PortFilterModel   `tfsdk:"port_filter"`
-	DomainFilter *DomainFilterModel `tfsdk:"domain_filter"`
+	Type             types.String           `tfsdk:"type"`
+	PortFilter       *PortFilterModel       `tfsdk:"port_filter"`
+	DomainFilter     *DomainFilterModel     `tfsdk:"domain_filter"`
+	IPAddressFilter  *IPAddressFilterModel  `tfsdk:"ip_address_filter"`
+	MACAddressFilter *MACAddressFilterModel `tfsdk:"mac_address_filter"`
+	NetworkFilter    *NetworkFilterModel    `tfsdk:"network_filter"`
+	MACAddress       types.String           `tfsdk:"mac_address"`
+}
+
+type IPAddressFilterModel struct {
+	Type          types.String `tfsdk:"type"`
+	MatchOpposite types.Bool   `tfsdk:"match_opposite"`
+	Items         types.List   `tfsdk:"items"`
+}
+
+type MACAddressFilterModel struct {
+	Type          types.String `tfsdk:"type"`
+	MatchOpposite types.Bool   `tfsdk:"match_opposite"`
+	Items         types.List   `tfsdk:"items"`
+}
+
+type NetworkFilterModel struct {
+	Type          types.String `tfsdk:"type"`
+	MatchOpposite types.Bool   `tfsdk:"match_opposite"`
+	Items         types.List   `tfsdk:"items"`
 }
 
 type PortFilterModel struct {
-	Type          types.String   `tfsdk:"type"`
-	MatchOpposite types.Bool     `tfsdk:"match_opposite"`
-	Items         []types.String `tfsdk:"items"`
+	Type          types.String    `tfsdk:"type"`
+	MatchOpposite types.Bool      `tfsdk:"match_opposite"`
+	Items         []PortItemModel `tfsdk:"items"`
+}
+
+type PortItemModel struct {
+	Type  types.String `tfsdk:"type"`
+	Value types.Int32  `tfsdk:"value"`
+	Start types.Int32  `tfsdk:"start"`
+	Stop  types.Int32  `tfsdk:"stop"`
 }
 
 type DomainFilterModel struct {
@@ -121,6 +150,9 @@ func (r *FirewallPolicyResource) Schema(ctx context.Context, req resource.Schema
 					"traffic_filter": schema.SingleNestedBlock{
 						Attributes: map[string]schema.Attribute{
 							"type": schema.StringAttribute{
+								Required: true,
+							},
+							"mac_address": schema.StringAttribute{
 								Optional: true,
 							},
 						},
@@ -128,14 +160,72 @@ func (r *FirewallPolicyResource) Schema(ctx context.Context, req resource.Schema
 							"port_filter": schema.SingleNestedBlock{
 								Attributes: map[string]schema.Attribute{
 									"type": schema.StringAttribute{
+										Required: true,
+									},
+									"match_opposite": schema.BoolAttribute{
+										Required: true,
+									},
+								},
+								Blocks: map[string]schema.Block{
+									"items": schema.ListNestedBlock{
+										NestedObject: schema.NestedBlockObject{
+											Attributes: map[string]schema.Attribute{
+												"type": schema.StringAttribute{
+													Required: true,
+												},
+												"value": schema.Int32Attribute{
+													Optional: true,
+												},
+												"start": schema.Int32Attribute{
+													Optional: true,
+												},
+												"stop": schema.Int32Attribute{
+													Optional: true,
+												},
+											},
+										},
+									},
+								},
+							},
+							"ip_address_filter": schema.SingleNestedBlock{
+								Attributes: map[string]schema.Attribute{
+									"type": schema.StringAttribute{
 										Optional: true,
 									},
 									"match_opposite": schema.BoolAttribute{
-										Optional: true,
+										Required: true,
 									},
 									"items": schema.ListAttribute{
 										ElementType: types.StringType,
-										Optional:    true,
+										Required:    true,
+									},
+								},
+							},
+							"mac_address_filter": schema.SingleNestedBlock{
+								Attributes: map[string]schema.Attribute{
+									"type": schema.StringAttribute{
+										Optional: true,
+									},
+									"match_opposite": schema.BoolAttribute{
+										Required: true,
+									},
+									"items": schema.ListAttribute{
+										ElementType: types.StringType,
+										Required:    true,
+									},
+								},
+							},
+							"network_filter": schema.SingleNestedBlock{
+								Attributes: map[string]schema.Attribute{
+									"type": schema.StringAttribute{
+										Optional: true,
+									},
+									"match_opposite": schema.BoolAttribute{
+										Required: true,
+									},
+									"items": schema.ListAttribute{
+										ElementType: types.StringType,
+										Required:    true,
 									},
 								},
 							},
@@ -153,6 +243,9 @@ func (r *FirewallPolicyResource) Schema(ctx context.Context, req resource.Schema
 					"traffic_filter": schema.SingleNestedBlock{
 						Attributes: map[string]schema.Attribute{
 							"type": schema.StringAttribute{
+								Required: true,
+							},
+							"mac_address": schema.StringAttribute{
 								Optional: true,
 							},
 						},
@@ -160,14 +253,72 @@ func (r *FirewallPolicyResource) Schema(ctx context.Context, req resource.Schema
 							"port_filter": schema.SingleNestedBlock{
 								Attributes: map[string]schema.Attribute{
 									"type": schema.StringAttribute{
+										Required: true,
+									},
+									"match_opposite": schema.BoolAttribute{
+										Required: true,
+									},
+								},
+								Blocks: map[string]schema.Block{
+									"items": schema.ListNestedBlock{
+										NestedObject: schema.NestedBlockObject{
+											Attributes: map[string]schema.Attribute{
+												"type": schema.StringAttribute{
+													Required: true,
+												},
+												"value": schema.Int32Attribute{
+													Optional: true,
+												},
+												"start": schema.Int32Attribute{
+													Optional: true,
+												},
+												"stop": schema.Int32Attribute{
+													Optional: true,
+												},
+											},
+										},
+									},
+								},
+							},
+							"ip_address_filter": schema.SingleNestedBlock{
+								Attributes: map[string]schema.Attribute{
+									"type": schema.StringAttribute{
 										Optional: true,
 									},
 									"match_opposite": schema.BoolAttribute{
-										Optional: true,
+										Required: true,
 									},
 									"items": schema.ListAttribute{
 										ElementType: types.StringType,
-										Optional:    true,
+										Required:    true,
+									},
+								},
+							},
+							"mac_address_filter": schema.SingleNestedBlock{
+								Attributes: map[string]schema.Attribute{
+									"type": schema.StringAttribute{
+										Optional: true,
+									},
+									"match_opposite": schema.BoolAttribute{
+										Required: true,
+									},
+									"items": schema.ListAttribute{
+										ElementType: types.StringType,
+										Required:    true,
+									},
+								},
+							},
+							"network_filter": schema.SingleNestedBlock{
+								Attributes: map[string]schema.Attribute{
+									"type": schema.StringAttribute{
+										Optional: true,
+									},
+									"match_opposite": schema.BoolAttribute{
+										Required: true,
+									},
+									"items": schema.ListAttribute{
+										ElementType: types.StringType,
+										Required:    true,
 									},
 								},
 							},
@@ -175,7 +326,7 @@ func (r *FirewallPolicyResource) Schema(ctx context.Context, req resource.Schema
 								Attributes: map[string]schema.Attribute{
 									"items": schema.ListAttribute{
 										ElementType: types.StringType,
-										Optional:    true,
+										Required:    true,
 									},
 								},
 							},
@@ -202,7 +353,7 @@ func (r *FirewallPolicyResource) Schema(ctx context.Context, req resource.Schema
 								Optional: true,
 							},
 							"match_opposite": schema.BoolAttribute{
-								Optional: true,
+								Required: true,
 							},
 						},
 					},
@@ -211,7 +362,6 @@ func (r *FirewallPolicyResource) Schema(ctx context.Context, req resource.Schema
 		},
 	}
 }
-
 func (r *FirewallPolicyResource) Configure(ctx context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
 	if req.ProviderData == nil {
 		return
@@ -326,6 +476,9 @@ func (r *FirewallPolicyResource) mapToAPI(ctx context.Context, data FirewallPoli
 		policy.Source.TrafficFilter = &unifi.TrafficFilter{
 			Type: data.Source.TrafficFilter.Type.ValueString(),
 		}
+		if !data.Source.TrafficFilter.MACAddress.IsNull() {
+			policy.Source.TrafficFilter.MACAddressFilter = data.Source.TrafficFilter.MACAddress.ValueString()
+		}
 		if policy.Source.TrafficFilter.Type == "" {
 			policy.Source.TrafficFilter.Type = "PORT"
 		}
@@ -339,14 +492,75 @@ func (r *FirewallPolicyResource) mapToAPI(ctx context.Context, data FirewallPoli
 				policy.Source.TrafficFilter.PortFilter.Type = "PORTS"
 			}
 			for _, item := range data.Source.TrafficFilter.PortFilter.Items {
-				policy.Source.TrafficFilter.PortFilter.Items = append(policy.Source.TrafficFilter.PortFilter.Items, unifi.PortItem{Port: item.ValueString()})
+				pi := unifi.PortItem{
+					Type: item.Type.ValueString(),
+				}
+				if !item.Value.IsNull() {
+					pi.Value = int(item.Value.ValueInt32())
+				}
+				if !item.Start.IsNull() {
+					pi.Start = int(item.Start.ValueInt32())
+				}
+				if !item.Stop.IsNull() {
+					pi.Stop = int(item.Stop.ValueInt32())
+				}
+				policy.Source.TrafficFilter.PortFilter.Items = append(policy.Source.TrafficFilter.PortFilter.Items, pi)
 			}
+		}
+
+		if data.Source.TrafficFilter.IPAddressFilter != nil {
+			policy.Source.TrafficFilter.IPAddressFilter = &unifi.IPAddressFilter{
+				Type:          data.Source.TrafficFilter.IPAddressFilter.Type.ValueString(),
+				MatchOpposite: data.Source.TrafficFilter.IPAddressFilter.MatchOpposite.ValueBool(),
+			}
+			if policy.Source.TrafficFilter.IPAddressFilter.Type == "" {
+				policy.Source.TrafficFilter.IPAddressFilter.Type = "IP_ADDRESS"
+			}
+
+			var items []string
+			data.Source.TrafficFilter.IPAddressFilter.Items.ElementsAs(ctx, &items, false)
+			policy.Source.TrafficFilter.IPAddressFilter.Addresses = items
+		}
+
+		if data.Source.TrafficFilter.MACAddressFilter != nil {
+			if policy.Source.TrafficFilter.MACAddressFilter == nil {
+				policy.Source.TrafficFilter.MACAddressFilter = &unifi.MACAddressFilter{
+					Type:          data.Source.TrafficFilter.MACAddressFilter.Type.ValueString(),
+					MatchOpposite: data.Source.TrafficFilter.MACAddressFilter.MatchOpposite.ValueBool(),
+				}
+			}
+			if macObj, ok := policy.Source.TrafficFilter.MACAddressFilter.(*unifi.MACAddressFilter); ok {
+				if macObj.Type == "" {
+					macObj.Type = "MAC_ADDRESSES"
+				}
+				var items []string
+				data.Source.TrafficFilter.MACAddressFilter.Items.ElementsAs(ctx, &items, false)
+				macObj.MACAddresses = items
+			}
+
+		}
+
+		if data.Source.TrafficFilter.NetworkFilter != nil {
+			policy.Source.TrafficFilter.NetworkFilter = &unifi.NetworkFilter{
+				Type:          data.Source.TrafficFilter.NetworkFilter.Type.ValueString(),
+				MatchOpposite: data.Source.TrafficFilter.NetworkFilter.MatchOpposite.ValueBool(),
+			}
+			if policy.Source.TrafficFilter.NetworkFilter.Type == "" {
+				policy.Source.TrafficFilter.NetworkFilter.Type = "NETWORK"
+			}
+
+			var items []string
+			data.Source.TrafficFilter.NetworkFilter.Items.ElementsAs(ctx, &items, false)
+			policy.Source.TrafficFilter.NetworkFilter.NetworkIDs = items
 		}
 	}
 
 	if data.Destination != nil && data.Destination.TrafficFilter != nil {
 		policy.Destination.TrafficFilter = &unifi.TrafficFilter{
 			Type: data.Destination.TrafficFilter.Type.ValueString(),
+		}
+		if !data.Destination.TrafficFilter.MACAddress.IsNull() {
+			policy.Destination.TrafficFilter.MACAddressFilter = data.Destination.TrafficFilter.MACAddress.ValueString()
 		}
 		if policy.Destination.TrafficFilter.Type == "" {
 			if data.Destination.TrafficFilter.DomainFilter != nil {
@@ -365,8 +579,64 @@ func (r *FirewallPolicyResource) mapToAPI(ctx context.Context, data FirewallPoli
 				policy.Destination.TrafficFilter.PortFilter.Type = "PORTS"
 			}
 			for _, item := range data.Destination.TrafficFilter.PortFilter.Items {
-				policy.Destination.TrafficFilter.PortFilter.Items = append(policy.Destination.TrafficFilter.PortFilter.Items, unifi.PortItem{Port: item.ValueString()})
+				pi := unifi.PortItem{
+					Type: item.Type.ValueString(),
+				}
+				if !item.Value.IsNull() {
+					pi.Value = int(item.Value.ValueInt32())
+				}
+				if !item.Start.IsNull() {
+					pi.Start = int(item.Start.ValueInt32())
+				}
+				if !item.Stop.IsNull() {
+					pi.Stop = int(item.Stop.ValueInt32())
+				}
+				policy.Destination.TrafficFilter.PortFilter.Items = append(policy.Destination.TrafficFilter.PortFilter.Items, pi)
 			}
+		}
+
+		if data.Destination.TrafficFilter.IPAddressFilter != nil {
+			policy.Destination.TrafficFilter.IPAddressFilter = &unifi.IPAddressFilter{
+				Type:          data.Destination.TrafficFilter.IPAddressFilter.Type.ValueString(),
+				MatchOpposite: data.Destination.TrafficFilter.IPAddressFilter.MatchOpposite.ValueBool(),
+			}
+			if policy.Destination.TrafficFilter.IPAddressFilter.Type == "" {
+				policy.Destination.TrafficFilter.IPAddressFilter.Type = "IP_ADDRESS"
+			}
+			var items []string
+			data.Destination.TrafficFilter.IPAddressFilter.Items.ElementsAs(ctx, &items, false)
+			policy.Destination.TrafficFilter.IPAddressFilter.Addresses = items
+		}
+
+		if data.Destination.TrafficFilter.MACAddressFilter != nil {
+			if policy.Destination.TrafficFilter.MACAddressFilter == nil {
+				policy.Destination.TrafficFilter.MACAddressFilter = &unifi.MACAddressFilter{
+					Type:          data.Destination.TrafficFilter.MACAddressFilter.Type.ValueString(),
+					MatchOpposite: data.Destination.TrafficFilter.MACAddressFilter.MatchOpposite.ValueBool(),
+				}
+			}
+			if macObj, ok := policy.Destination.TrafficFilter.MACAddressFilter.(*unifi.MACAddressFilter); ok {
+				if macObj.Type == "" {
+					macObj.Type = "MAC_ADDRESSES"
+				}
+				var items []string
+				data.Destination.TrafficFilter.MACAddressFilter.Items.ElementsAs(ctx, &items, false)
+				macObj.MACAddresses = items
+			}
+		}
+
+		if data.Destination.TrafficFilter.NetworkFilter != nil {
+			policy.Destination.TrafficFilter.NetworkFilter = &unifi.NetworkFilter{
+				Type:          data.Destination.TrafficFilter.NetworkFilter.Type.ValueString(),
+				MatchOpposite: data.Destination.TrafficFilter.NetworkFilter.MatchOpposite.ValueBool(),
+			}
+			if policy.Destination.TrafficFilter.NetworkFilter.Type == "" {
+				policy.Destination.TrafficFilter.NetworkFilter.Type = "NETWORK"
+			}
+
+			var items []string
+			data.Destination.TrafficFilter.NetworkFilter.Items.ElementsAs(ctx, &items, false)
+			policy.Destination.TrafficFilter.NetworkFilter.NetworkIDs = items
 		}
 
 		if data.Destination.TrafficFilter.DomainFilter != nil {
@@ -413,6 +683,125 @@ func (r *FirewallPolicyResource) mapFromAPI(ctx context.Context, p *unifi.Firewa
 		IPVersion: types.StringValue(p.IPProtocolScope.IPVersion),
 	}
 	data.LoggingEnabled = types.BoolValue(p.LoggingEnabled)
+
+	if p.Source.TrafficFilter != nil {
+		data.Source.TrafficFilter.Type = types.StringValue(p.Source.TrafficFilter.Type)
+		if v, ok := p.Source.TrafficFilter.MACAddressFilter.(string); ok {
+			data.Source.TrafficFilter.MACAddress = types.StringValue(v)
+		}
+	}
+	if p.Destination.TrafficFilter != nil {
+		data.Destination.TrafficFilter.Type = types.StringValue(p.Destination.TrafficFilter.Type)
+		if v, ok := p.Destination.TrafficFilter.MACAddressFilter.(string); ok {
+			data.Destination.TrafficFilter.MACAddress = types.StringValue(v)
+		}
+	}
+
+	if p.Source.TrafficFilter != nil && p.Source.TrafficFilter.PortFilter != nil {
+		var items []PortItemModel
+		for _, item := range p.Source.TrafficFilter.PortFilter.Items {
+			pi := PortItemModel{
+				Type: types.StringValue(item.Type),
+			}
+			if item.Value != 0 {
+				pi.Value = types.Int32Value(int32(item.Value))
+			}
+			if item.Start != 0 {
+				pi.Start = types.Int32Value(int32(item.Start))
+			}
+			if item.Stop != 0 {
+				pi.Stop = types.Int32Value(int32(item.Stop))
+			}
+			items = append(items, pi)
+		}
+		data.Source.TrafficFilter.PortFilter = &PortFilterModel{
+			Type:          types.StringValue(p.Source.TrafficFilter.PortFilter.Type),
+			MatchOpposite: types.BoolValue(p.Source.TrafficFilter.PortFilter.MatchOpposite),
+			Items:         items,
+		}
+	}
+
+	if p.Destination.TrafficFilter != nil && p.Destination.TrafficFilter.PortFilter != nil {
+		var items []PortItemModel
+		for _, item := range p.Destination.TrafficFilter.PortFilter.Items {
+			pi := PortItemModel{
+				Type: types.StringValue(item.Type),
+			}
+			if item.Value != 0 {
+				pi.Value = types.Int32Value(int32(item.Value))
+			}
+			if item.Start != 0 {
+				pi.Start = types.Int32Value(int32(item.Start))
+			}
+			if item.Stop != 0 {
+				pi.Stop = types.Int32Value(int32(item.Stop))
+			}
+			items = append(items, pi)
+		}
+		data.Destination.TrafficFilter.PortFilter = &PortFilterModel{
+			Type:          types.StringValue(p.Destination.TrafficFilter.PortFilter.Type),
+			MatchOpposite: types.BoolValue(p.Destination.TrafficFilter.PortFilter.MatchOpposite),
+			Items:         items,
+		}
+	}
+
+	if p.Source.TrafficFilter != nil && p.Source.TrafficFilter.IPAddressFilter != nil {
+		items, _ := types.ListValueFrom(ctx, types.StringType, p.Source.TrafficFilter.IPAddressFilter.Addresses)
+		data.Source.TrafficFilter.IPAddressFilter = &IPAddressFilterModel{
+			Type:          types.StringValue(p.Source.TrafficFilter.IPAddressFilter.Type),
+			MatchOpposite: types.BoolValue(p.Source.TrafficFilter.IPAddressFilter.MatchOpposite),
+			Items:         items,
+		}
+	}
+
+	if p.Source.TrafficFilter != nil && p.Source.TrafficFilter.MACAddressFilter != nil {
+		if macObj, ok := p.Source.TrafficFilter.MACAddressFilter.(*unifi.MACAddressFilter); ok {
+			items, _ := types.ListValueFrom(ctx, types.StringType, macObj.MACAddresses)
+			data.Source.TrafficFilter.MACAddressFilter = &MACAddressFilterModel{
+				Type:          types.StringValue(macObj.Type),
+				MatchOpposite: types.BoolValue(macObj.MatchOpposite),
+				Items:         items,
+			}
+		}
+	}
+
+	if p.Source.TrafficFilter != nil && p.Source.TrafficFilter.NetworkFilter != nil {
+		items, _ := types.ListValueFrom(ctx, types.StringType, p.Source.TrafficFilter.NetworkFilter.NetworkIDs)
+		data.Source.TrafficFilter.NetworkFilter = &NetworkFilterModel{
+			Type:          types.StringValue(p.Source.TrafficFilter.NetworkFilter.Type),
+			MatchOpposite: types.BoolValue(p.Source.TrafficFilter.NetworkFilter.MatchOpposite),
+			Items:         items,
+		}
+	}
+
+	if p.Destination.TrafficFilter != nil && p.Destination.TrafficFilter.IPAddressFilter != nil {
+		items, _ := types.ListValueFrom(ctx, types.StringType, p.Destination.TrafficFilter.IPAddressFilter.Addresses)
+		data.Destination.TrafficFilter.IPAddressFilter = &IPAddressFilterModel{
+			Type:          types.StringValue(p.Destination.TrafficFilter.IPAddressFilter.Type),
+			MatchOpposite: types.BoolValue(p.Destination.TrafficFilter.IPAddressFilter.MatchOpposite),
+			Items:         items,
+		}
+	}
+
+	if p.Destination.TrafficFilter != nil && p.Destination.TrafficFilter.MACAddressFilter != nil {
+		if macObj, ok := p.Destination.TrafficFilter.MACAddressFilter.(*unifi.MACAddressFilter); ok {
+			items, _ := types.ListValueFrom(ctx, types.StringType, macObj.MACAddresses)
+			data.Destination.TrafficFilter.MACAddressFilter = &MACAddressFilterModel{
+				Type:          types.StringValue(macObj.Type),
+				MatchOpposite: types.BoolValue(macObj.MatchOpposite),
+				Items:         items,
+			}
+		}
+	}
+
+	if p.Destination.TrafficFilter != nil && p.Destination.TrafficFilter.NetworkFilter != nil {
+		items, _ := types.ListValueFrom(ctx, types.StringType, p.Destination.TrafficFilter.NetworkFilter.NetworkIDs)
+		data.Destination.TrafficFilter.NetworkFilter = &NetworkFilterModel{
+			Type:          types.StringValue(p.Destination.TrafficFilter.NetworkFilter.Type),
+			MatchOpposite: types.BoolValue(p.Destination.TrafficFilter.NetworkFilter.MatchOpposite),
+			Items:         items,
+		}
+	}
 
 	if len(p.ConnectionStateFilter) > 0 {
 		states, _ := types.SetValueFrom(ctx, types.StringType, p.ConnectionStateFilter)

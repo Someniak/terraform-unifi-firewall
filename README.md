@@ -32,7 +32,7 @@ This command will:
 
 ## Using the Provider
 
-After installation, you can use the provider in your Terraform configurations. See the [examples/](examples/) directory for sample configurations.
+After installation, you can use the provider in your Terraform configurations. See the [examples/](examples/) directory for sample configurations and the [Schema Reference](SCHEMA_REFERENCE.md) for detailed attribute documentation.
 
 ### Basic Configuration
 
