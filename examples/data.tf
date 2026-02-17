@@ -1,23 +1,16 @@
-data "unifi_firewall_zone" "staging" {
-  name = "Staging"
+# Fetch common firewall zones
+data "unifi_firewall_zone" "default" {
+  name = "Default"
 }
 
-data "unifi_firewall_zone" "server" {
-  name = "Server"
+data "unifi_firewall_zone" "internet" {
+  name = "Internet"
 }
 
-data "unifi_firewall_zone" "dmz" {
-  name = "DMZ"
+data "unifi_firewall_zone" "guest" {
+  name = "Guest"
 }
 
-data "unifi_firewall_zone" "storage" {
-  name = "Storage"
-}
-
-data "unifi_firewall_zone" "management" {
-  name = "Management"
-}
-
-data "unifi_firewall_zone" "internal_dmz" {
-  name = "Internal-DMZ"
+data "unifi_firewall_zone" "iot" {
+  name = "IoT"
 }

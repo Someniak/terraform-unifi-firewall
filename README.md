@@ -1,6 +1,6 @@
 # Terraform Provider for UniFi Firewall
 
-A Terraform provider for managing UniFi firewall rules and policies via the UniFi API.
+A Terraform provider for managing UniFi firewall rules and policies via the UniFi API. Currently supported and tested version of Unifi Network Manager is 10.1.X
 
 ## Prerequisites
 
