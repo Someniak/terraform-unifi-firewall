@@ -48,7 +48,7 @@ func (r *FirewallPolicyResource) Schema(ctx context.Context, req resource.Schema
 			"schedule": schema.SingleNestedBlock{
 				Attributes: map[string]schema.Attribute{
 					"mode": schema.StringAttribute{
-						Required: true,
+						Optional: true, // Workaround for validation
 						Validators: []validator.String{
 							stringvalidator.OneOf("EVERY_DAY", "EVERY_WEEK", "ONE_TIME_ONLY", "CUSTOM"),
 						},
@@ -68,10 +68,10 @@ func (r *FirewallPolicyResource) Schema(ctx context.Context, req resource.Schema
 					"time_range": schema.SingleNestedBlock{
 						Attributes: map[string]schema.Attribute{
 							"start": schema.StringAttribute{
-								Required: true,
+								Optional: true, // Workaround for validation
 							},
 							"stop": schema.StringAttribute{
-								Required: true,
+								Optional: true, // Workaround for validation
 							},
 						},
 					},
@@ -101,7 +101,7 @@ func (r *FirewallPolicyResource) Schema(ctx context.Context, req resource.Schema
 					"traffic_filter": schema.SingleNestedBlock{
 						Attributes: map[string]schema.Attribute{
 							"type": schema.StringAttribute{
-								Required: true,
+								Optional: true, // Workaround for validation
 							},
 							"mac_address": schema.StringAttribute{
 								Optional: true,
@@ -111,10 +111,10 @@ func (r *FirewallPolicyResource) Schema(ctx context.Context, req resource.Schema
 							"port_filter": schema.SingleNestedBlock{
 								Attributes: map[string]schema.Attribute{
 									"type": schema.StringAttribute{
-										Required: true,
+										Optional: true, // Workaround for validation
 									},
 									"match_opposite": schema.BoolAttribute{
-										Required: true,
+										Optional: true, // Workaround for validation
 									},
 								},
 								Blocks: map[string]schema.Block{
@@ -122,7 +122,7 @@ func (r *FirewallPolicyResource) Schema(ctx context.Context, req resource.Schema
 										NestedObject: schema.NestedBlockObject{
 											Attributes: map[string]schema.Attribute{
 												"type": schema.StringAttribute{
-													Required: true,
+													Optional: true, // Workaround for validation
 												},
 												"value": schema.Int32Attribute{
 													Optional: true,
@@ -144,11 +144,11 @@ func (r *FirewallPolicyResource) Schema(ctx context.Context, req resource.Schema
 										Optional: true,
 									},
 									"match_opposite": schema.BoolAttribute{
-										Required: true,
+										Optional: true, // Workaround for validation
 									},
 									"items": schema.ListAttribute{
 										ElementType: types.StringType,
-										Required:    true,
+										Optional:    true, // Workaround for validation
 									},
 								},
 							},
@@ -158,11 +158,11 @@ func (r *FirewallPolicyResource) Schema(ctx context.Context, req resource.Schema
 										Optional: true,
 									},
 									"match_opposite": schema.BoolAttribute{
-										Required: true,
+										Optional: true, // Workaround for validation
 									},
 									"items": schema.ListAttribute{
 										ElementType: types.StringType,
-										Required:    true,
+										Optional:    true, // Workaround for validation
 									},
 								},
 							},
@@ -172,11 +172,11 @@ func (r *FirewallPolicyResource) Schema(ctx context.Context, req resource.Schema
 										Optional: true,
 									},
 									"match_opposite": schema.BoolAttribute{
-										Required: true,
+										Optional: true, // Workaround for validation
 									},
 									"items": schema.ListAttribute{
 										ElementType: types.StringType,
-										Required:    true,
+										Optional:    true, // Workaround for validation
 									},
 								},
 							},
@@ -194,7 +194,7 @@ func (r *FirewallPolicyResource) Schema(ctx context.Context, req resource.Schema
 					"traffic_filter": schema.SingleNestedBlock{
 						Attributes: map[string]schema.Attribute{
 							"type": schema.StringAttribute{
-								Required: true,
+								Optional: true, // Workaround for validation
 							},
 							"mac_address": schema.StringAttribute{
 								Optional: true,
@@ -204,10 +204,10 @@ func (r *FirewallPolicyResource) Schema(ctx context.Context, req resource.Schema
 							"port_filter": schema.SingleNestedBlock{
 								Attributes: map[string]schema.Attribute{
 									"type": schema.StringAttribute{
-										Required: true,
+										Optional: true, // Workaround for validation
 									},
 									"match_opposite": schema.BoolAttribute{
-										Required: true,
+										Optional: true, // Workaround for validation
 									},
 								},
 								Blocks: map[string]schema.Block{
@@ -215,7 +215,7 @@ func (r *FirewallPolicyResource) Schema(ctx context.Context, req resource.Schema
 										NestedObject: schema.NestedBlockObject{
 											Attributes: map[string]schema.Attribute{
 												"type": schema.StringAttribute{
-													Required: true,
+													Optional: true, // Workaround for validation
 												},
 												"value": schema.Int32Attribute{
 													Optional: true,
@@ -237,11 +237,11 @@ func (r *FirewallPolicyResource) Schema(ctx context.Context, req resource.Schema
 										Optional: true,
 									},
 									"match_opposite": schema.BoolAttribute{
-										Required: true,
+										Optional: true, // Workaround for validation
 									},
 									"items": schema.ListAttribute{
 										ElementType: types.StringType,
-										Required:    true,
+										Optional:    true, // Workaround for validation
 									},
 								},
 							},
@@ -251,11 +251,11 @@ func (r *FirewallPolicyResource) Schema(ctx context.Context, req resource.Schema
 										Optional: true,
 									},
 									"match_opposite": schema.BoolAttribute{
-										Required: true,
+										Optional: true, // Workaround for validation
 									},
 									"items": schema.ListAttribute{
 										ElementType: types.StringType,
-										Required:    true,
+										Optional:    true, // Workaround for validation
 									},
 								},
 							},
@@ -265,11 +265,11 @@ func (r *FirewallPolicyResource) Schema(ctx context.Context, req resource.Schema
 										Optional: true,
 									},
 									"match_opposite": schema.BoolAttribute{
-										Required: true,
+										Optional: true, // Workaround for validation
 									},
 									"items": schema.ListAttribute{
 										ElementType: types.StringType,
-										Required:    true,
+										Optional:    true, // Workaround for validation
 									},
 								},
 							},
@@ -277,7 +277,7 @@ func (r *FirewallPolicyResource) Schema(ctx context.Context, req resource.Schema
 								Attributes: map[string]schema.Attribute{
 									"items": schema.ListAttribute{
 										ElementType: types.StringType,
-										Required:    true,
+										Optional:    true, // Workaround for validation
 									},
 								},
 							},
@@ -304,7 +304,7 @@ func (r *FirewallPolicyResource) Schema(ctx context.Context, req resource.Schema
 								Optional: true,
 							},
 							"match_opposite": schema.BoolAttribute{
-								Required: true,
+								Optional: true, // Workaround for validation
 							},
 						},
 					},

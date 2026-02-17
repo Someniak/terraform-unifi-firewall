@@ -8,6 +8,7 @@ bin/
 *.tfvars
 *.tfvars.json
 *.tfstate*
+*.tfrc
 
 # Go files
 vendor/
@@ -19,3 +20,4 @@ vendor/
 .vscode/
 .idea/
 .env
+
