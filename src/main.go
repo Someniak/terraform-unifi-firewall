@@ -20,7 +20,7 @@ func main() {
 		Debug:   debug,
 	}
 
-	err := providerserver.Serve(context.Background(), provider.New("1.0.0"), opts)
+	err := providerserver.Serve(context.Background(), provider.New("0.2.0"), opts)
 
 	if err != nil {
 		log.Fatal(err.Error())
