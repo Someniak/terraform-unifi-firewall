@@ -147,19 +147,21 @@ type TrafficFilter struct {
 }
 
 type IPAddressFilter struct {
-	Type          string   `json:"type"` // IP_ADDRESS
-	MatchOpposite bool     `json:"matchOpposite"`
-	Addresses     []string `json:"ipAddresses"`
+	Type          string          `json:"type"` // IP_ADDRESSES, TRAFFIC_MATCHING_LIST
+	MatchOpposite bool            `json:"matchOpposite"`
+	Items         []IPAddressItem `json:"items"`
+}
+
+type IPAddressItem struct {
+	Type  string `json:"type"` // IP_ADDRESS, SUBNET, IP_ADDRESS_RANGE
+	Value string `json:"value"`
 }
 
 type MACAddressFilter struct {
-	Type          string   `json:"type"` // MAC_ADDRESSES
-	MatchOpposite bool     `json:"matchOpposite"`
-	MACAddresses  []string `json:"macAddresses"`
+	MACAddresses []string `json:"macAddresses"`
 }
 
 type NetworkFilter struct {
-	Type          string   `json:"type"` // NETWORK
 	MatchOpposite bool     `json:"matchOpposite"`
 	NetworkIDs    []string `json:"networkIds"`
 }

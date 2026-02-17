@@ -85,16 +85,26 @@ terraform {
 
 Terraform will automatically prefer the local plugin in `~/.terraform.d/plugins` if the version matches. You can run `terraform init` to verify it picks up the local plugin.
 
-Alternatively, you can use a `.terraformrc` or `terraform.rc` file to override the provider installation path for development:
+Alternatively, you can use a `.terraformrc` or `terraform.rc` file to override the provider installation path for development. This is especially useful for using the local provider in **different projects**:
 
-```hcl
-provider_installation {
-  dev_overrides {
-    "someniak/unifi" = "/path/to/your/go/bin"
-  }
-  direct {}
-}
-```
+1.  **Build the provider** in this repository:
+    ```bash
+    make build
+    ```
+2.  **Create a `dev.tfrc` file** in your *other* project's root:
+    ```hcl
+    provider_installation {
+      dev_overrides {
+        "someniak/unifi" = "/Users/darthvader/Library/Mobile Documents/com~apple~CloudDocs/Projects/Repositories/terraform-unifi-firewall"
+      }
+      direct {}
+    }
+    ```
+3.  **Run Terraform** in that project using the override:
+    ```bash
+    export TF_CLI_CONFIG_FILE=$(pwd)/dev.tfrc
+    terraform plan
+    ```
 
 ### Cleaning Up
 

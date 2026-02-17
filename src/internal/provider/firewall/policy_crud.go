@@ -52,8 +52,6 @@ func (r *FirewallPolicyResource) Update(ctx context.Context, req resource.Update
 	}
 
 	policy := r.mapToAPI(ctx, plan)
-	// API uses ID in path, so we don't necessarily need it in body, but struct has it
-	policy.ID = state.ID.ValueString()
 
 	_, err := r.client.UpdateFirewallPolicy(state.ID.ValueString(), policy)
 	if err != nil {

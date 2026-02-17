@@ -3,6 +3,8 @@ package firewall
 import (
 	"context"
 
+	"strings"
+
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/someniak/terraform-provider-unifi-firewall/src/internal/unifi"
 )
@@ -48,7 +50,16 @@ func mapTrafficFilterToAPI(ctx context.Context, tf *TrafficFilterModel) *unifi.T
 		apiTF.IPAddressFilter = &unifi.IPAddressFilter{
 			Type:          tf.IPAddressFilter.Type.ValueString(),
 			MatchOpposite: tf.IPAddressFilter.MatchOpposite.ValueBool(),
-			Addresses:     items,
+		}
+		for _, item := range items {
+			itemType := "IP_ADDRESS"
+			if strings.Contains(item, "/") {
+				itemType = "SUBNET"
+			}
+			apiTF.IPAddressFilter.Items = append(apiTF.IPAddressFilter.Items, unifi.IPAddressItem{
+				Type:  itemType,
+				Value: item,
+			})
 		}
 	}
 
@@ -56,9 +67,7 @@ func mapTrafficFilterToAPI(ctx context.Context, tf *TrafficFilterModel) *unifi.T
 		var items []string
 		tf.MACAddressFilter.Items.ElementsAs(ctx, &items, false)
 		apiTF.MACAddressFilter = &unifi.MACAddressFilter{
-			Type:          tf.MACAddressFilter.Type.ValueString(),
-			MatchOpposite: tf.MACAddressFilter.MatchOpposite.ValueBool(),
-			MACAddresses:  items,
+			MACAddresses: items,
 		}
 	}
 
@@ -66,7 +75,6 @@ func mapTrafficFilterToAPI(ctx context.Context, tf *TrafficFilterModel) *unifi.T
 		var items []string
 		tf.NetworkFilter.Items.ElementsAs(ctx, &items, false)
 		apiTF.NetworkFilter = &unifi.NetworkFilter{
-			Type:          tf.NetworkFilter.Type.ValueString(),
 			MatchOpposite: tf.NetworkFilter.MatchOpposite.ValueBool(),
 			NetworkIDs:    items,
 		}
@@ -98,7 +106,14 @@ func mapTrafficFilterFromAPI(ctx context.Context, apiTF *unifi.TrafficFilter) *T
 	}
 
 	// Handle polymorphic MACAddressFilter
-	if listMacs, ok := apiTF.MACAddressFilter.(map[string]interface{}); ok {
+	if macFilter, ok := apiTF.MACAddressFilter.(*unifi.MACAddressFilter); ok {
+		tf.MACAddressFilter = &MACAddressFilterModel{
+			Type:          types.StringValue("MAC_ADDRESSES"),
+			MatchOpposite: types.BoolValue(false),
+		}
+		tf.MACAddressFilter.Items, _ = types.ListValueFrom(ctx, types.StringType, macFilter.MACAddresses)
+	} else if listMacs, ok := apiTF.MACAddressFilter.(map[string]interface{}); ok {
+		// Fallback for raw map if needed (e.g. from generic JSON unmarshal)
 		if macs, ok := listMacs["macAddresses"].([]interface{}); ok {
 			var ms []string
 			for _, m := range macs {
@@ -107,9 +122,6 @@ func mapTrafficFilterFromAPI(ctx context.Context, apiTF *unifi.TrafficFilter) *T
 			tf.MACAddressFilter = &MACAddressFilterModel{
 				Type:          types.StringValue("MAC_ADDRESSES"),
 				MatchOpposite: types.BoolValue(false),
-			}
-			if mo, ok := listMacs["matchOpposite"].(bool); ok {
-				tf.MACAddressFilter.MatchOpposite = types.BoolValue(mo)
 			}
 			tf.MACAddressFilter.Items, _ = types.ListValueFrom(ctx, types.StringType, ms)
 		}
@@ -144,12 +156,16 @@ func mapTrafficFilterFromAPI(ctx context.Context, apiTF *unifi.TrafficFilter) *T
 			Type:          types.StringValue(apiTF.IPAddressFilter.Type),
 			MatchOpposite: types.BoolValue(apiTF.IPAddressFilter.MatchOpposite),
 		}
-		tf.IPAddressFilter.Items, _ = types.ListValueFrom(ctx, types.StringType, apiTF.IPAddressFilter.Addresses)
+		var ms []string
+		for _, item := range apiTF.IPAddressFilter.Items {
+			ms = append(ms, item.Value)
+		}
+		tf.IPAddressFilter.Items, _ = types.ListValueFrom(ctx, types.StringType, ms)
 	}
 
 	if apiTF.NetworkFilter != nil {
 		tf.NetworkFilter = &NetworkFilterModel{
-			Type:          types.StringValue(apiTF.NetworkFilter.Type),
+			Type:          types.StringValue("NETWORK"),
 			MatchOpposite: types.BoolValue(apiTF.NetworkFilter.MatchOpposite),
 		}
 		tf.NetworkFilter.Items, _ = types.ListValueFrom(ctx, types.StringType, apiTF.NetworkFilter.NetworkIDs)
