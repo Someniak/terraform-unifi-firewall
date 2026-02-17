@@ -149,7 +149,7 @@ type TrafficFilter struct {
 type IPAddressFilter struct {
 	Type          string   `json:"type"` // IP_ADDRESS
 	MatchOpposite bool     `json:"matchOpposite"`
-	Addresses     []string `json:"addresses"`
+	Addresses     []string `json:"ipAddresses"`
 }
 
 type MACAddressFilter struct {
