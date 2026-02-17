@@ -9,6 +9,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/provider/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/types"
+	"github.com/someniak/terraform-provider-unifi-firewall/src/internal/provider/firewall"
 	"github.com/someniak/terraform-provider-unifi-firewall/src/internal/unifi"
 )
 
@@ -96,13 +97,13 @@ func (p *UnifiProvider) Configure(ctx context.Context, req provider.ConfigureReq
 
 func (p *UnifiProvider) Resources(ctx context.Context) []func() resource.Resource {
 	return []func() resource.Resource{
-		NewFirewallPolicyResource,
+		firewall.NewFirewallPolicyResource,
 	}
 }
 
 func (p *UnifiProvider) DataSources(ctx context.Context) []func() datasource.DataSource {
 	return []func() datasource.DataSource{
-		NewFirewallZoneDataSource,
+		firewall.NewFirewallZoneDataSource,
 		NewNetworkDataSource,
 	}
 }

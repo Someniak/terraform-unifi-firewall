@@ -138,9 +138,30 @@ type FirewallSourceDest struct {
 }
 
 type TrafficFilter struct {
-	Type         string        `json:"type"` // PORT, NETWORK, MAC_ADDRESS, IP_ADDRESS, IPV6_IID, REGION, VPN_SERVER, SITE_TO_SITE_VPN_TUNNEL, DOMAIN (dest only), APPLICATION (dest only)
-	PortFilter   *PortFilter   `json:"portFilter,omitempty"`
-	DomainFilter *DomainFilter `json:"domainFilter,omitempty"`
+	Type             string           `json:"type"` // PORT, NETWORK, MAC_ADDRESS, IP_ADDRESS, IPV6_IID, REGION, VPN_SERVER, SITE_TO_SITE_VPN_TUNNEL, DOMAIN (dest only), APPLICATION (dest only)
+	PortFilter       *PortFilter      `json:"portFilter,omitempty"`
+	DomainFilter     *DomainFilter    `json:"domainFilter,omitempty"`
+	IPAddressFilter  *IPAddressFilter `json:"ipAddressFilter,omitempty"`
+	NetworkFilter    *NetworkFilter   `json:"networkFilter,omitempty"`
+	MACAddressFilter interface{}      `json:"macAddressFilter,omitempty"` // Polymorphic: string (additional) or *MACAddressFilter (standalone)
+}
+
+type IPAddressFilter struct {
+	Type          string   `json:"type"` // IP_ADDRESS
+	MatchOpposite bool     `json:"matchOpposite"`
+	Addresses     []string `json:"addresses"`
+}
+
+type MACAddressFilter struct {
+	Type          string   `json:"type"` // MAC_ADDRESSES
+	MatchOpposite bool     `json:"matchOpposite"`
+	MACAddresses  []string `json:"macAddresses"`
+}
+
+type NetworkFilter struct {
+	Type          string   `json:"type"` // NETWORK
+	MatchOpposite bool     `json:"matchOpposite"`
+	NetworkIDs    []string `json:"networkIds"`
 }
 
 type DomainFilter struct {
@@ -155,8 +176,10 @@ type PortFilter struct {
 }
 
 type PortItem struct {
-	Port      string `json:"port,omitempty"`      // "80"
-	PortRange string `json:"portRange,omitempty"` // "80-81"
+	Type  string `json:"type"` // PORT_NUMBER, PORT_NUMBER_RANGE
+	Value int    `json:"value,omitempty"`
+	Start int    `json:"start,omitempty"`
+	Stop  int    `json:"stop,omitempty"`
 }
 
 type IPProtocolScope struct {

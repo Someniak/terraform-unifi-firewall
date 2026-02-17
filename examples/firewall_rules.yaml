@@ -1,7 +1,0 @@
-- name: "Allow Home to IoT"
-  enabled: true
-  action: "ALLOW"
-  source: "Home"
-  destination: "Management"
-  logging: true
-  allow_return_traffic: true
