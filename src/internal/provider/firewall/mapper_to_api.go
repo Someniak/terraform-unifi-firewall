@@ -12,8 +12,7 @@ func (r *FirewallPolicyResource) mapToAPI(ctx context.Context, data FirewallPoli
 		Name:        data.Name.ValueString(),
 		Description: data.Description.ValueString(),
 		Action: unifi.FirewallAction{
-			Type:               data.Action.Type.ValueString(),
-			AllowReturnTraffic: data.Action.AllowReturnTraffic.ValueBool(),
+			Type: data.Action.Type.ValueString(),
 		},
 		Source: unifi.FirewallSourceDest{
 			ZoneID: data.Source.ZoneID.ValueString(),
@@ -25,6 +24,11 @@ func (r *FirewallPolicyResource) mapToAPI(ctx context.Context, data FirewallPoli
 			IPVersion: data.IPProtocolScope.IPVersion.ValueString(),
 		},
 		LoggingEnabled: data.LoggingEnabled.ValueBool(),
+	}
+
+	if data.Action != nil && !data.Action.AllowReturnTraffic.IsNull() && !data.Action.AllowReturnTraffic.IsUnknown() {
+		val := data.Action.AllowReturnTraffic.ValueBool()
+		policy.Action.AllowReturnTraffic = &val
 	}
 
 	if !data.IPsecFilter.IsNull() {

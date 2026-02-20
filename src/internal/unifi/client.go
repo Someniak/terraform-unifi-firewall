@@ -130,7 +130,7 @@ type FirewallPolicy struct {
 
 type FirewallAction struct {
 	Type               string `json:"type"` // e.g., "ALLOW", "BLOCK", "REJECT"
-	AllowReturnTraffic bool   `json:"allowReturnTraffic"`
+	AllowReturnTraffic *bool  `json:"allowReturnTraffic,omitempty"`
 }
 
 type FirewallSourceDest struct {

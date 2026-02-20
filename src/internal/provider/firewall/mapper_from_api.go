@@ -13,8 +13,12 @@ func (r *FirewallPolicyResource) mapFromAPI(ctx context.Context, p *unifi.Firewa
 	data.Name = types.StringValue(p.Name)
 	data.Description = types.StringValue(p.Description)
 	data.Action = &ActionModel{
-		Type:               types.StringValue(p.Action.Type),
-		AllowReturnTraffic: types.BoolValue(p.Action.AllowReturnTraffic),
+		Type: types.StringValue(p.Action.Type),
+	}
+	if p.Action.AllowReturnTraffic != nil {
+		data.Action.AllowReturnTraffic = types.BoolValue(*p.Action.AllowReturnTraffic)
+	} else {
+		data.Action.AllowReturnTraffic = types.BoolNull()
 	}
 	data.Source = &SourceDestModel{
 		ZoneID: types.StringValue(p.Source.ZoneID),
