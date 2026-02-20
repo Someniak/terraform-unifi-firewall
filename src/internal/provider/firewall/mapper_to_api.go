@@ -27,8 +27,10 @@ func (r *FirewallPolicyResource) mapToAPI(ctx context.Context, data FirewallPoli
 	}
 
 	if data.Action != nil && !data.Action.AllowReturnTraffic.IsNull() && !data.Action.AllowReturnTraffic.IsUnknown() {
-		val := data.Action.AllowReturnTraffic.ValueBool()
-		policy.Action.AllowReturnTraffic = &val
+		if data.Action.Type.ValueString() != "BLOCK" {
+			val := data.Action.AllowReturnTraffic.ValueBool()
+			policy.Action.AllowReturnTraffic = &val
+		}
 	}
 
 	if !data.IPsecFilter.IsNull() {
