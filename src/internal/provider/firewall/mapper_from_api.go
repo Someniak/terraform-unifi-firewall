@@ -11,16 +11,18 @@ func (r *FirewallPolicyResource) mapFromAPI(ctx context.Context, p *unifi.Firewa
 	data.ID = types.StringValue(p.ID)
 	data.Enabled = types.BoolValue(p.Enabled)
 	data.Name = types.StringValue(p.Name)
-	data.Description = types.StringValue(p.Description)
+	if p.Description != "" {
+		data.Description = types.StringValue(p.Description)
+	} else {
+		data.Description = types.StringNull()
+	}
 	data.Action = &ActionModel{
 		Type: types.StringValue(p.Action.Type),
 	}
 	if p.Action.AllowReturnTraffic != nil {
 		data.Action.AllowReturnTraffic = types.BoolValue(*p.Action.AllowReturnTraffic)
 	} else {
-		// Default to true for ALLOW, false otherwise (BLOCK/REJECT)
-		// This matches the default behavior in UniFi and our ModifyPlan logic.
-		data.Action.AllowReturnTraffic = types.BoolValue(p.Action.Type == "ALLOW")
+		data.Action.AllowReturnTraffic = types.BoolNull()
 	}
 	data.Source = &SourceDestModel{
 		ZoneID: types.StringValue(p.Source.ZoneID),
@@ -34,6 +36,8 @@ func (r *FirewallPolicyResource) mapFromAPI(ctx context.Context, p *unifi.Firewa
 	data.LoggingEnabled = types.BoolValue(p.LoggingEnabled)
 	if p.IPsecFilter != "" {
 		data.IPsecFilter = types.StringValue(p.IPsecFilter)
+	} else {
+		data.IPsecFilter = types.StringNull()
 	}
 
 	if p.Schedule != nil {
@@ -87,6 +91,8 @@ func (r *FirewallPolicyResource) mapFromAPI(ctx context.Context, p *unifi.Firewa
 
 	if len(p.ConnectionStateFilter) > 0 {
 		data.ConnectionStateFilter, _ = types.SetValueFrom(ctx, types.StringType, p.ConnectionStateFilter)
+	} else {
+		data.ConnectionStateFilter = types.SetNull(types.StringType)
 	}
 
 	if p.Source.TrafficFilter != nil {
