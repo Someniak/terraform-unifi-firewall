@@ -18,7 +18,9 @@ func (r *FirewallPolicyResource) mapFromAPI(ctx context.Context, p *unifi.Firewa
 	if p.Action.AllowReturnTraffic != nil {
 		data.Action.AllowReturnTraffic = types.BoolValue(*p.Action.AllowReturnTraffic)
 	} else {
-		data.Action.AllowReturnTraffic = types.BoolNull()
+		// Default to true for ALLOW, false otherwise (BLOCK/REJECT)
+		// This matches the default behavior in UniFi and our ModifyPlan logic.
+		data.Action.AllowReturnTraffic = types.BoolValue(p.Action.Type == "ALLOW")
 	}
 	data.Source = &SourceDestModel{
 		ZoneID: types.StringValue(p.Source.ZoneID),
