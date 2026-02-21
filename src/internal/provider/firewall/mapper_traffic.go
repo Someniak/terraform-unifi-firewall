@@ -101,20 +101,24 @@ func mapTrafficFilterFromAPI(ctx context.Context, apiTF *unifi.TrafficFilter) *T
 		Type: types.StringValue(apiTF.Type),
 	}
 
-	if v, ok := apiTF.MACAddressFilter.(string); ok {
+	hasContent := false
+
+	if v, ok := apiTF.MACAddressFilter.(string); ok && v != "" {
 		tf.MACAddress = types.StringValue(v)
+		hasContent = true
 	}
 
 	// Handle polymorphic MACAddressFilter
-	if macFilter, ok := apiTF.MACAddressFilter.(*unifi.MACAddressFilter); ok {
+	if macFilter, ok := apiTF.MACAddressFilter.(*unifi.MACAddressFilter); ok && len(macFilter.MACAddresses) > 0 {
 		tf.MACAddressFilter = &MACAddressFilterModel{
 			Type:          types.StringValue("MAC_ADDRESSES"),
 			MatchOpposite: types.BoolValue(false),
 		}
 		tf.MACAddressFilter.Items, _ = types.SetValueFrom(ctx, types.StringType, macFilter.MACAddresses)
+		hasContent = true
 	} else if listMacs, ok := apiTF.MACAddressFilter.(map[string]interface{}); ok {
 		// Fallback for raw map if needed (e.g. from generic JSON unmarshal)
-		if macs, ok := listMacs["macAddresses"].([]interface{}); ok {
+		if macs, ok := listMacs["macAddresses"].([]interface{}); ok && len(macs) > 0 {
 			var ms []string
 			for _, m := range macs {
 				ms = append(ms, m.(string))
@@ -124,10 +128,11 @@ func mapTrafficFilterFromAPI(ctx context.Context, apiTF *unifi.TrafficFilter) *T
 				MatchOpposite: types.BoolValue(false),
 			}
 			tf.MACAddressFilter.Items, _ = types.SetValueFrom(ctx, types.StringType, ms)
+			hasContent = true
 		}
 	}
 
-	if apiTF.PortFilter != nil {
+	if apiTF.PortFilter != nil && len(apiTF.PortFilter.Items) > 0 {
 		var items []PortItemModel
 		for _, item := range apiTF.PortFilter.Items {
 			pi := PortItemModel{
@@ -161,9 +166,10 @@ func mapTrafficFilterFromAPI(ctx context.Context, apiTF *unifi.TrafficFilter) *T
 			MatchOpposite: types.BoolValue(apiTF.PortFilter.MatchOpposite),
 			Items:         items,
 		}
+		hasContent = true
 	}
 
-	if apiTF.IPAddressFilter != nil {
+	if apiTF.IPAddressFilter != nil && len(apiTF.IPAddressFilter.Items) > 0 {
 		tf.IPAddressFilter = &IPAddressFilterModel{
 			Type:          types.StringValue(apiTF.IPAddressFilter.Type),
 			MatchOpposite: types.BoolValue(apiTF.IPAddressFilter.MatchOpposite),
@@ -173,19 +179,26 @@ func mapTrafficFilterFromAPI(ctx context.Context, apiTF *unifi.TrafficFilter) *T
 			ms = append(ms, item.Value)
 		}
 		tf.IPAddressFilter.Items, _ = types.SetValueFrom(ctx, types.StringType, ms)
+		hasContent = true
 	}
 
-	if apiTF.NetworkFilter != nil {
+	if apiTF.NetworkFilter != nil && len(apiTF.NetworkFilter.NetworkIDs) > 0 {
 		tf.NetworkFilter = &NetworkFilterModel{
 			Type:          types.StringValue("NETWORK"),
 			MatchOpposite: types.BoolValue(apiTF.NetworkFilter.MatchOpposite),
 		}
 		tf.NetworkFilter.Items, _ = types.SetValueFrom(ctx, types.StringType, apiTF.NetworkFilter.NetworkIDs)
+		hasContent = true
 	}
 
-	if apiTF.DomainFilter != nil {
+	if apiTF.DomainFilter != nil && len(apiTF.DomainFilter.Domains) > 0 {
 		tf.DomainFilter = &DomainFilterModel{}
 		tf.DomainFilter.Items, _ = types.SetValueFrom(ctx, types.StringType, apiTF.DomainFilter.Domains)
+		hasContent = true
+	}
+
+	if !hasContent {
+		return nil
 	}
 
 	return tf
