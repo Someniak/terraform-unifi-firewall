@@ -109,8 +109,12 @@ func (r *FirewallPolicyResource) mapFromAPI(ctx context.Context, p *unifi.Firewa
 	}
 
 	if p.IPProtocolScope.ProtocolFilter != nil {
+		tfType := p.IPProtocolScope.ProtocolFilter.Type
+		if strings.EqualFold(tfType, "NAMED_PROTOCOL") {
+			tfType = "PROTOCOL" // Reverse mapping to prevent TF diffs
+		}
 		data.IPProtocolScope.ProtocolFilter = &ProtocolFilterModel{
-			Type:          types.StringValue(p.IPProtocolScope.ProtocolFilter.Type),
+			Type:          types.StringValue(tfType),
 			MatchOpposite: types.BoolValue(p.IPProtocolScope.ProtocolFilter.MatchOpposite),
 		}
 		if protocol := mapProtocolFromAPI(p.IPProtocolScope.ProtocolFilter.Protocol); protocol != "" {

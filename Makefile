@@ -1,5 +1,5 @@
 BINARY=terraform-provider-unifi
-VERSION=0.5.0
+VERSION=0.5.1
 OS_ARCH=darwin_arm64
 
 default: build
