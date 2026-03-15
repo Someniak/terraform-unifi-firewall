@@ -3,7 +3,6 @@ package firewall
 import (
 	"context"
 	"fmt"
-	"os"
 
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
@@ -118,13 +117,6 @@ func (r *DNSPolicyResource) Configure(ctx context.Context, req resource.Configur
 	}
 
 	r.client = client
-
-	// Debug logging
-	f, _ := os.OpenFile("/tmp/terraform-unifi-resource-debug.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-	if f != nil {
-		defer f.Close()
-		f.WriteString(fmt.Sprintf("DEBUG: Resource Configure. Client Address: %p, SiteID: %s\n", r.client, r.client.SiteID))
-	}
 }
 
 func (r *DNSPolicyResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
