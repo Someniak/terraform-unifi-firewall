@@ -64,21 +64,33 @@ func (r *DNSPolicyResource) Schema(ctx context.Context, req resource.SchemaReque
 				Default:             booldefault.StaticBool(true),
 				MarkdownDescription: "Whether the policy is enabled.",
 			},
-			"target": schema.StringAttribute{
-				Optional:            true,
-				MarkdownDescription: "The target for forwarding domains.",
-			},
 			"ip_address": schema.StringAttribute{
 				Optional:            true,
-				MarkdownDescription: "The IP address for A or AAAA records.",
+				MarkdownDescription: "The IP address for A records (IPv4), AAAA records (IPv6), or FORWARD_DOMAIN (DNS server IP).",
 			},
 			"cname": schema.StringAttribute{
 				Optional:            true,
-				MarkdownDescription: "The CNAME target.",
+				MarkdownDescription: "The target domain for CNAME records.",
+			},
+			"mail_server": schema.StringAttribute{
+				Optional:            true,
+				MarkdownDescription: "The mail server domain for MX records.",
 			},
 			"priority": schema.Int64Attribute{
 				Optional:            true,
 				MarkdownDescription: "The priority for MX or SRV records.",
+			},
+			"server_domain": schema.StringAttribute{
+				Optional:            true,
+				MarkdownDescription: "The server domain for SRV records.",
+			},
+			"service": schema.StringAttribute{
+				Optional:            true,
+				MarkdownDescription: "The service name for SRV records (e.g., _ldap).",
+			},
+			"protocol": schema.StringAttribute{
+				Optional:            true,
+				MarkdownDescription: "The protocol for SRV records (e.g., _tcp).",
 			},
 			"weight": schema.Int64Attribute{
 				Optional:            true,
@@ -143,32 +155,42 @@ func (r *DNSPolicyResource) Create(ctx context.Context, req resource.CreateReque
 		Enabled: plan.Enabled.ValueBool(),
 	}
 
-	if !plan.Target.IsNull() {
-		policy.Target = plan.Target.ValueString()
-	}
 	if !plan.IPAddress.IsNull() {
-		// Assuming IPAddress maps to IPv4Address for now, logic could be smarter based on Type or string analysis
-		policy.IPv4Address = plan.IPAddress.ValueString()
-	}
-	if !plan.CNAME.IsNull() {
-		policy.CNAME = plan.CNAME.ValueString()
-	}
-	if !plan.Priority.IsNull() {
-		val := int(plan.Priority.ValueInt64())
-		if policy.Type == "MX_RECORD" {
-			policy.MXPriority = val
-		} else if policy.Type == "SRV_RECORD" {
-			policy.SRVPriority = val
+		switch policy.Type {
+		case "A_RECORD":
+			policy.IPv4Address = plan.IPAddress.ValueString()
+		case "AAAA_RECORD":
+			policy.IPv6Address = plan.IPAddress.ValueString()
+		case "FORWARD_DOMAIN":
+			policy.IPAddress = plan.IPAddress.ValueString()
 		}
 	}
+	if !plan.CNAME.IsNull() {
+		policy.TargetDomain = plan.CNAME.ValueString()
+	}
+	if !plan.MailServer.IsNull() {
+		policy.MailServerDomain = plan.MailServer.ValueString()
+	}
+	if !plan.Priority.IsNull() {
+		policy.Priority = int(plan.Priority.ValueInt64())
+	}
+	if !plan.ServerDomain.IsNull() {
+		policy.ServerDomain = plan.ServerDomain.ValueString()
+	}
+	if !plan.Service.IsNull() {
+		policy.Service = plan.Service.ValueString()
+	}
+	if !plan.Protocol.IsNull() {
+		policy.Protocol = plan.Protocol.ValueString()
+	}
 	if !plan.Weight.IsNull() {
-		policy.SRVWeight = int(plan.Weight.ValueInt64())
+		policy.Weight = int(plan.Weight.ValueInt64())
 	}
 	if !plan.Port.IsNull() {
-		policy.SRVPort = int(plan.Port.ValueInt64())
+		policy.Port = int(plan.Port.ValueInt64())
 	}
 	if !plan.Text.IsNull() {
-		policy.TXTText = plan.Text.ValueString()
+		policy.Text = plan.Text.ValueString()
 	}
 	if !plan.TTL.IsNull() {
 		policy.TTL = int(plan.TTL.ValueInt64())
@@ -208,31 +230,47 @@ func (r *DNSPolicyResource) Read(ctx context.Context, req resource.ReadRequest, 
 	state.Domain = types.StringValue(policy.Domain)
 	state.Enabled = types.BoolValue(policy.Enabled)
 
-	if policy.Target != "" {
-		state.Target = types.StringValue(policy.Target)
-	}
-	if policy.IPv4Address != "" {
-		state.IPAddress = types.StringValue(policy.IPv4Address)
-	}
-	if policy.CNAME != "" {
-		state.CNAME = types.StringValue(policy.CNAME)
-	}
-
-	// Handle Priority polymorphism
-	if policy.Type == "MX_RECORD" && policy.MXPriority != 0 {
-		state.Priority = types.Int64Value(int64(policy.MXPriority))
-	} else if policy.Type == "SRV_RECORD" && policy.SRVPriority != 0 {
-		state.Priority = types.Int64Value(int64(policy.SRVPriority))
+	switch policy.Type {
+	case "A_RECORD":
+		if policy.IPv4Address != "" {
+			state.IPAddress = types.StringValue(policy.IPv4Address)
+		}
+	case "AAAA_RECORD":
+		if policy.IPv6Address != "" {
+			state.IPAddress = types.StringValue(policy.IPv6Address)
+		}
+	case "FORWARD_DOMAIN":
+		if policy.IPAddress != "" {
+			state.IPAddress = types.StringValue(policy.IPAddress)
+		}
 	}
 
-	if policy.SRVWeight != 0 {
-		state.Weight = types.Int64Value(int64(policy.SRVWeight))
+	if policy.TargetDomain != "" {
+		state.CNAME = types.StringValue(policy.TargetDomain)
 	}
-	if policy.SRVPort != 0 {
-		state.Port = types.Int64Value(int64(policy.SRVPort))
+	if policy.MailServerDomain != "" {
+		state.MailServer = types.StringValue(policy.MailServerDomain)
 	}
-	if policy.TXTText != "" {
-		state.Text = types.StringValue(policy.TXTText)
+	if policy.Priority != 0 {
+		state.Priority = types.Int64Value(int64(policy.Priority))
+	}
+	if policy.ServerDomain != "" {
+		state.ServerDomain = types.StringValue(policy.ServerDomain)
+	}
+	if policy.Service != "" {
+		state.Service = types.StringValue(policy.Service)
+	}
+	if policy.Protocol != "" {
+		state.Protocol = types.StringValue(policy.Protocol)
+	}
+	if policy.Weight != 0 {
+		state.Weight = types.Int64Value(int64(policy.Weight))
+	}
+	if policy.Port != 0 {
+		state.Port = types.Int64Value(int64(policy.Port))
+	}
+	if policy.Text != "" {
+		state.Text = types.StringValue(policy.Text)
 	}
 	if policy.TTL != 0 {
 		state.TTL = types.Int64Value(int64(policy.TTL))
@@ -255,31 +293,42 @@ func (r *DNSPolicyResource) Update(ctx context.Context, req resource.UpdateReque
 		Enabled: plan.Enabled.ValueBool(),
 	}
 
-	if !plan.Target.IsNull() {
-		policy.Target = plan.Target.ValueString()
-	}
 	if !plan.IPAddress.IsNull() {
-		policy.IPv4Address = plan.IPAddress.ValueString()
-	}
-	if !plan.CNAME.IsNull() {
-		policy.CNAME = plan.CNAME.ValueString()
-	}
-	if !plan.Priority.IsNull() {
-		val := int(plan.Priority.ValueInt64())
-		if policy.Type == "MX_RECORD" {
-			policy.MXPriority = val
-		} else if policy.Type == "SRV_RECORD" {
-			policy.SRVPriority = val
+		switch policy.Type {
+		case "A_RECORD":
+			policy.IPv4Address = plan.IPAddress.ValueString()
+		case "AAAA_RECORD":
+			policy.IPv6Address = plan.IPAddress.ValueString()
+		case "FORWARD_DOMAIN":
+			policy.IPAddress = plan.IPAddress.ValueString()
 		}
 	}
+	if !plan.CNAME.IsNull() {
+		policy.TargetDomain = plan.CNAME.ValueString()
+	}
+	if !plan.MailServer.IsNull() {
+		policy.MailServerDomain = plan.MailServer.ValueString()
+	}
+	if !plan.Priority.IsNull() {
+		policy.Priority = int(plan.Priority.ValueInt64())
+	}
+	if !plan.ServerDomain.IsNull() {
+		policy.ServerDomain = plan.ServerDomain.ValueString()
+	}
+	if !plan.Service.IsNull() {
+		policy.Service = plan.Service.ValueString()
+	}
+	if !plan.Protocol.IsNull() {
+		policy.Protocol = plan.Protocol.ValueString()
+	}
 	if !plan.Weight.IsNull() {
-		policy.SRVWeight = int(plan.Weight.ValueInt64())
+		policy.Weight = int(plan.Weight.ValueInt64())
 	}
 	if !plan.Port.IsNull() {
-		policy.SRVPort = int(plan.Port.ValueInt64())
+		policy.Port = int(plan.Port.ValueInt64())
 	}
 	if !plan.Text.IsNull() {
-		policy.TXTText = plan.Text.ValueString()
+		policy.Text = plan.Text.ValueString()
 	}
 	if !plan.TTL.IsNull() {
 		policy.TTL = int(plan.TTL.ValueInt64())

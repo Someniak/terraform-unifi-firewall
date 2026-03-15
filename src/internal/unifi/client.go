@@ -409,21 +409,33 @@ func (c *Client) ListNetworks() ([]Network, error) {
 
 // DNS Policies
 type DNSPolicy struct {
-	ID          string `json:"id,omitempty"`
-	Type        string `json:"type"` // e.g., "A_RECORD", "AAAA_RECORD", "CNAME_RECORD", "MX_RECORD", "TXT_RECORD", "SRV_RECORD", "FORWARD_DOMAIN"
-	Domain      string `json:"domain"`
-	Enabled     bool   `json:"enabled"`
+	ID      string `json:"id,omitempty"`
+	Type    string `json:"type"` // A_RECORD, AAAA_RECORD, CNAME_RECORD, MX_RECORD, TXT_RECORD, SRV_RECORD, FORWARD_DOMAIN
+	Domain  string `json:"domain"`
+	Enabled bool   `json:"enabled"`
+
+	// A_RECORD
 	IPv4Address string `json:"ipv4Address,omitempty"`
+	// AAAA_RECORD
 	IPv6Address string `json:"ipv6Address,omitempty"`
-	CNAME       string `json:"cname,omitempty"`
-	MXPriority  int    `json:"mxPriority,omitempty"`
-	MXHostname  string `json:"mxHostname,omitempty"`
-	TXTText     string `json:"txtText,omitempty"`
-	SRVPriority int    `json:"srvPriority,omitempty"`
-	SRVWeight   int    `json:"srvWeight,omitempty"`
-	SRVPort     int    `json:"srvPort,omitempty"`
-	Target      string `json:"target,omitempty"` // For FORWARD_DOMAIN
-	TTL         int    `json:"ttlSeconds"`
+	// CNAME_RECORD
+	TargetDomain string `json:"targetDomain,omitempty"`
+	// MX_RECORD
+	MailServerDomain string `json:"mailServerDomain,omitempty"`
+	// MX_RECORD, SRV_RECORD (shared field name in API)
+	Priority int `json:"priority,omitempty"`
+	// SRV_RECORD
+	ServerDomain string `json:"serverDomain,omitempty"`
+	Service      string `json:"service,omitempty"`
+	Protocol     string `json:"protocol,omitempty"`
+	Weight       int    `json:"weight,omitempty"`
+	Port         int    `json:"port,omitempty"`
+	// TXT_RECORD
+	Text string `json:"text,omitempty"`
+	// FORWARD_DOMAIN
+	IPAddress string `json:"ipAddress,omitempty"`
+	// Common
+	TTL int `json:"ttlSeconds"`
 }
 
 // ListDNSPolicies fetches all DNS policies for the given site, using a short-lived cache.
