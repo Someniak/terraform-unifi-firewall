@@ -73,8 +73,8 @@ func TestMapProtocolFromAPI(t *testing.T) {
 		in   map[string]interface{}
 		want string
 	}{
-		{name: "name", in: map[string]interface{}{"name": "TCP"}, want: "tcp"},
-		{name: "preset", in: map[string]interface{}{"preset": "TCP_UDP"}, want: "tcp_udp"},
+		{name: "name", in: map[string]interface{}{"name": "TCP"}, want: "TCP"},
+		{name: "preset", in: map[string]interface{}{"preset": "TCP_UDP"}, want: "TCP_UDP"},
 		{name: "number string", in: map[string]interface{}{"number": "17"}, want: "17"},
 		{name: "number numeric", in: map[string]interface{}{"number": float64(17)}, want: "17"},
 	}

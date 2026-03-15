@@ -268,8 +268,8 @@ func TestMapFromAPI_ProtocolFilter_NamedProtocol(t *testing.T) {
 	if data.IPProtocolScope.ProtocolFilter.Type.ValueString() != "PROTOCOL" {
 		t.Errorf("expected type 'PROTOCOL' (reverse mapped), got %q", data.IPProtocolScope.ProtocolFilter.Type.ValueString())
 	}
-	if data.IPProtocolScope.ProtocolFilter.Protocol.ValueString() != "tcp" {
-		t.Errorf("expected protocol 'tcp', got %q", data.IPProtocolScope.ProtocolFilter.Protocol.ValueString())
+	if data.IPProtocolScope.ProtocolFilter.Protocol.ValueString() != "TCP" {
+		t.Errorf("expected protocol 'TCP', got %q", data.IPProtocolScope.ProtocolFilter.Protocol.ValueString())
 	}
 }
 

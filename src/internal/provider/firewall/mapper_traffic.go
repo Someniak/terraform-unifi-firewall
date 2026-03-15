@@ -97,8 +97,9 @@ func mapTrafficFilterFromAPI(ctx context.Context, apiTF *unifi.TrafficFilter) *T
 		return nil
 	}
 
-	tf := &TrafficFilterModel{
-		Type: types.StringValue(apiTF.Type),
+	tf := &TrafficFilterModel{}
+	if apiTF.Type != "" {
+		tf.Type = types.StringValue(apiTF.Type)
 	}
 
 	hasContent := false
@@ -162,17 +163,24 @@ func mapTrafficFilterFromAPI(ctx context.Context, apiTF *unifi.TrafficFilter) *T
 		})
 
 		tf.PortFilter = &PortFilterModel{
-			Type:          types.StringValue(apiTF.PortFilter.Type),
-			MatchOpposite: types.BoolValue(apiTF.PortFilter.MatchOpposite),
-			Items:         items,
+			Items: items,
+		}
+		if apiTF.PortFilter.Type != "" {
+			tf.PortFilter.Type = types.StringValue(apiTF.PortFilter.Type)
+		}
+		if apiTF.PortFilter.MatchOpposite {
+			tf.PortFilter.MatchOpposite = types.BoolValue(true)
 		}
 		hasContent = true
 	}
 
 	if apiTF.IPAddressFilter != nil && len(apiTF.IPAddressFilter.Items) > 0 {
-		tf.IPAddressFilter = &IPAddressFilterModel{
-			Type:          types.StringValue(apiTF.IPAddressFilter.Type),
-			MatchOpposite: types.BoolValue(apiTF.IPAddressFilter.MatchOpposite),
+		tf.IPAddressFilter = &IPAddressFilterModel{}
+		if apiTF.IPAddressFilter.Type != "" {
+			tf.IPAddressFilter.Type = types.StringValue(apiTF.IPAddressFilter.Type)
+		}
+		if apiTF.IPAddressFilter.MatchOpposite {
+			tf.IPAddressFilter.MatchOpposite = types.BoolValue(true)
 		}
 		var ms []string
 		for _, item := range apiTF.IPAddressFilter.Items {
@@ -184,8 +192,10 @@ func mapTrafficFilterFromAPI(ctx context.Context, apiTF *unifi.TrafficFilter) *T
 
 	if apiTF.NetworkFilter != nil && len(apiTF.NetworkFilter.NetworkIDs) > 0 {
 		tf.NetworkFilter = &NetworkFilterModel{
-			Type:          types.StringValue("NETWORK"),
-			MatchOpposite: types.BoolValue(apiTF.NetworkFilter.MatchOpposite),
+			Type: types.StringValue("NETWORK"),
+		}
+		if apiTF.NetworkFilter.MatchOpposite {
+			tf.NetworkFilter.MatchOpposite = types.BoolValue(true)
 		}
 		tf.NetworkFilter.Items, _ = types.SetValueFrom(ctx, types.StringType, apiTF.NetworkFilter.NetworkIDs)
 		hasContent = true

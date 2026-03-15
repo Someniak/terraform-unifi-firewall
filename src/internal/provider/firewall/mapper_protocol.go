@@ -36,7 +36,9 @@ func mapProtocolFromAPI(protocol map[string]interface{}) string {
 
 	for _, key := range []string{"name", "preset", "number", "value"} {
 		if value, ok := protocol[key].(string); ok && value != "" {
-			return strings.ToLower(value)
+			// Preserve original case — the user writes "TCP"/"UDP" and Terraform
+			// expects the read-back to match the config to avoid perpetual diffs.
+			return value
 		}
 	}
 
