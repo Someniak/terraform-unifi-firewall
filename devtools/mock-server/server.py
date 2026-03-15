@@ -30,7 +30,7 @@ app = Flask(__name__)
 # In-memory data store
 # ---------------------------------------------------------------------------
 
-lock = threading.Lock()
+lock = threading.RLock()
 
 sites = [
     {"id": "site-default", "name": "Default", "internalReference": "default"},
@@ -538,4 +538,8 @@ if __name__ == "__main__":
     print('      insecure = true')
     print("    }")
     print("=" * 60)
-    app.run(host="0.0.0.0", port=5100, debug=True)
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--debug", action="store_true", help="Enable Flask debug mode")
+    args = parser.parse_args()
+    app.run(host="0.0.0.0", port=5100, debug=args.debug)
