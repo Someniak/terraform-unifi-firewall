@@ -24,10 +24,7 @@ func (r *FirewallPolicyResource) mapFromAPI(ctx context.Context, p *unifi.Firewa
 	if p.Action.AllowReturnTraffic != nil {
 		data.Action.AllowReturnTraffic = types.BoolValue(*p.Action.AllowReturnTraffic)
 	} else {
-		// Default to true for ALLOW, false otherwise (BLOCK/REJECT)
-		// Use case-insensitive comparison for stability
-		isAllow := strings.EqualFold(actionType, "ALLOW")
-		data.Action.AllowReturnTraffic = types.BoolValue(isAllow)
+		data.Action.AllowReturnTraffic = types.BoolValue(false)
 	}
 	data.Source = &SourceDestModel{
 		ZoneID: types.StringValue(p.Source.ZoneID),
@@ -50,46 +47,17 @@ func (r *FirewallPolicyResource) mapFromAPI(ctx context.Context, p *unifi.Firewa
 			Mode: types.StringValue(p.Schedule.Mode),
 		}
 
-		if tfMap, ok := p.Schedule.TimeFilter.(map[string]interface{}); ok {
-			if start, ok := tfMap["start"].(string); ok {
-				if p.Schedule.Mode == "ONE_TIME_ONLY" {
-					data.Schedule.Start = types.StringValue(start)
-				} else {
-					if data.Schedule.TimeRange == nil {
-						data.Schedule.TimeRange = &TimeRangeModel{}
-					}
-					data.Schedule.TimeRange.Start = types.StringValue(start)
-				}
+		if p.Schedule.Mode == "ONE_TIME_ONLY" {
+			if p.Schedule.Start != "" {
+				data.Schedule.Start = types.StringValue(p.Schedule.Start)
 			}
-			if stop, ok := tfMap["stop"].(string); ok {
-				if p.Schedule.Mode == "ONE_TIME_ONLY" {
-					data.Schedule.Stop = types.StringValue(stop)
-				} else {
-					if data.Schedule.TimeRange == nil {
-						data.Schedule.TimeRange = &TimeRangeModel{}
-					}
-					data.Schedule.TimeRange.Stop = types.StringValue(stop)
-				}
+			if p.Schedule.Stop != "" {
+				data.Schedule.Stop = types.StringValue(p.Schedule.Stop)
 			}
-			if days, ok := tfMap["days"].([]interface{}); ok {
-				var daysStr []string
-				for _, d := range days {
-					if ds, ok := d.(string); ok {
-						daysStr = append(daysStr, ds)
-					}
-				}
-				data.Schedule.DaysOfWeek, _ = types.SetValueFrom(ctx, types.StringType, daysStr)
-			}
-			if tr, ok := tfMap["timeRange"].(map[string]interface{}); ok {
-				if data.Schedule.TimeRange == nil {
-					data.Schedule.TimeRange = &TimeRangeModel{}
-				}
-				if start, ok := tr["start"].(string); ok {
-					data.Schedule.TimeRange.Start = types.StringValue(start)
-				}
-				if stop, ok := tr["stop"].(string); ok {
-					data.Schedule.TimeRange.Stop = types.StringValue(stop)
-				}
+		} else if p.Schedule.Mode == "EVERY_WEEK" {
+			if len(p.Schedule.RepeatOnDays) > 0 {
+				days := mapDayNamesFromAPI(p.Schedule.RepeatOnDays)
+				data.Schedule.DaysOfWeek, _ = types.SetValueFrom(ctx, types.StringType, days)
 			}
 		}
 	}
@@ -114,13 +82,28 @@ func (r *FirewallPolicyResource) mapFromAPI(ctx context.Context, p *unifi.Firewa
 			tfType = "PROTOCOL" // Reverse mapping to prevent TF diffs
 		}
 		data.IPProtocolScope.ProtocolFilter = &ProtocolFilterModel{
-			Type: types.StringValue(tfType),
-		}
-		if p.IPProtocolScope.ProtocolFilter.MatchOpposite {
-			data.IPProtocolScope.ProtocolFilter.MatchOpposite = types.BoolValue(true)
+			Type:          types.StringValue(tfType),
+			MatchOpposite: types.BoolValue(p.IPProtocolScope.ProtocolFilter.MatchOpposite),
 		}
 		if protocol := mapProtocolFromAPI(p.IPProtocolScope.ProtocolFilter.Protocol); protocol != "" {
 			data.IPProtocolScope.ProtocolFilter.Protocol = types.StringValue(protocol)
 		}
 	}
+}
+
+// mapDayNamesFromAPI converts full day names (MONDAY) from the API to short format (MON).
+func mapDayNamesFromAPI(days []string) []string {
+	fullToShort := map[string]string{
+		"MONDAY": "MON", "TUESDAY": "TUE", "WEDNESDAY": "WED",
+		"THURSDAY": "THU", "FRIDAY": "FRI", "SATURDAY": "SAT", "SUNDAY": "SUN",
+	}
+	out := make([]string, len(days))
+	for i, d := range days {
+		if short, ok := fullToShort[d]; ok {
+			out[i] = short
+		} else {
+			out[i] = d
+		}
+	}
+	return out
 }

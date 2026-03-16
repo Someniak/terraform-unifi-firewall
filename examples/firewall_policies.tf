@@ -35,10 +35,6 @@ resource "unifi_fw" "block_guest_iot_workhours" {
   schedule {
     mode         = "EVERY_WEEK"
     days_of_week = ["MON", "TUE", "WED", "THU", "FRI"]
-    time_range {
-      start = "08:00"
-      stop  = "17:00"
-    }
   }
   ip_protocol_scope {
     ip_version = "IPV4"
@@ -362,14 +358,6 @@ resource "unifi_fw" "limit_iot_server_access" {
   }
   source {
     zone_id = data.unifi_firewall_zone.iot.id
-    traffic_filter {
-      type = "NETWORK"
-      network_filter {
-        type           = "NETWORKS"
-        match_opposite = false
-        items          = ["iot-network-id"] # Replace with valid ID
-      }
-    }
   }
   destination {
     zone_id = data.unifi_firewall_zone.default.id
@@ -394,4 +382,12 @@ resource "unifi_fw" "limit_iot_server_access" {
     ip_version = "IPV4"
   }
   logging_enabled = true
+}
+
+# Assign a fixed IP (DHCP reservation) to a client device.
+resource "unifi_fixedip" "server" {
+  mac        = "00:11:22:33:44:55"
+  network_id = "net-1"
+  fixed_ip   = "192.168.1.200"
+  name       = "my-server"
 }

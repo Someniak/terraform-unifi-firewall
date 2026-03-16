@@ -34,3 +34,9 @@ variable "unifi_insecure" {
   description = "Whether to allow insecure TLS connections"
   default     = true
 }
+
+variable "iot_network_id" {
+  type        = string
+  description = "Network ID of the IoT network (for network filter examples)"
+  default     = ""
+}

@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/cookiejar"
+	"strings"
 	"sync"
 	"time"
 )
@@ -35,11 +36,12 @@ func (e *cacheEntry[T]) valid() bool {
 const cacheTTL = 2 * time.Minute
 
 type Client struct {
-	BaseURL    string
-	APIKey     string
-	SiteID     string
-	Insecure   bool
-	HTTPClient *http.Client
+	BaseURL       string
+	APIKey        string
+	SiteID        string
+	SiteReference string // e.g. "default" — used for legacy REST API paths
+	Insecure      bool
+	HTTPClient    *http.Client
 
 	authMode  authMode
 	csrfToken string
@@ -99,8 +101,15 @@ func NewClientWithCredentials(baseURL, username, password, siteID string, insecu
 	return c, nil
 }
 
+// networkBaseURL returns the Network Application base URL by stripping the
+// "/integration" suffix from the integration API base URL. This is used for
+// legacy REST API calls (e.g. /api/s/{site}/rest/user).
+func (c *Client) networkBaseURL() string {
+	return strings.TrimSuffix(c.BaseURL, "/integration")
+}
+
 func (c *Client) login(username, password string) error {
-	loginURL := fmt.Sprintf("%s/api/login", c.BaseURL)
+	loginURL := fmt.Sprintf("%s/api/login", c.networkBaseURL())
 	payload, _ := json.Marshal(map[string]string{
 		"username": username,
 		"password": password,
@@ -345,8 +354,10 @@ type ProtocolFilter struct {
 }
 
 type FirewallSchedule struct {
-	Mode       string `json:"mode"` // EVERY_DAY, EVERY_WEEK, ONE_TIME_ONLY, CUSTOM
-	TimeFilter any    `json:"timeFilter"`
+	Mode         string   `json:"mode"`                   // EVERY_DAY, EVERY_WEEK, ONE_TIME_ONLY
+	RepeatOnDays []string `json:"repeatOnDays,omitempty"`  // e.g. ["MONDAY","TUESDAY"] — EVERY_WEEK only
+	Start        string   `json:"start,omitempty"`         // ONE_TIME_ONLY start datetime
+	Stop         string   `json:"stop,omitempty"`          // ONE_TIME_ONLY stop datetime
 }
 
 // ListFirewallPolicies fetches all firewall policies, using a short-lived cache
@@ -637,17 +648,39 @@ func (c *Client) DeleteDNSPolicy(siteID, policyId string) error {
 }
 
 // Client Devices (for fixed IP / DHCP reservations)
+//
+// Client operations use the legacy REST API (/api/s/{site}/rest/user) instead
+// of the integration API. The REST API reads from MongoDB and sees all known
+// clients (including offline and historical devices), whereas the integration
+// API only tracks currently-connected clients.
 type ClientDevice struct {
-	ID         string `json:"id,omitempty"`
-	MAC        string `json:"mac"`
+	ID         string `json:"_id,omitempty"`
+	MAC        string `json:"mac,omitempty"`
 	Name       string `json:"name,omitempty"`
 	UseFixedIP bool   `json:"use_fixedip"`
 	NetworkID  string `json:"network_id,omitempty"`
 	FixedIP    string `json:"fixed_ip,omitempty"`
 }
 
-func (c *Client) ListClients(siteID string) ([]ClientDevice, error) {
-	url := fmt.Sprintf("%s/v1/sites/%s/clients?limit=200", c.BaseURL, siteID)
+// restAPIResponse wraps the legacy REST API response format.
+type restAPIResponse struct {
+	Meta struct {
+		RC  string `json:"rc"`
+		Msg string `json:"msg,omitempty"`
+	} `json:"meta"`
+	Data json.RawMessage `json:"data"`
+}
+
+func (c *Client) restUserURL(objectID ...string) string {
+	base := fmt.Sprintf("%s/api/s/%s/rest/user", c.networkBaseURL(), c.SiteReference)
+	if len(objectID) > 0 && objectID[0] != "" {
+		return base + "/" + objectID[0]
+	}
+	return base
+}
+
+func (c *Client) ListClients(_ string) ([]ClientDevice, error) {
+	url := c.restUserURL()
 	req, _ := http.NewRequest(http.MethodGet, url, nil)
 
 	body, err := c.doRequest(req)
@@ -655,18 +688,24 @@ func (c *Client) ListClients(siteID string) ([]ClientDevice, error) {
 		return nil, err
 	}
 
-	var response struct {
-		Data []ClientDevice `json:"data"`
-	}
-	if err := json.Unmarshal(body, &response); err != nil {
+	var resp restAPIResponse
+	if err := json.Unmarshal(body, &resp); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal clients: %w. response body: %s", err, string(body))
 	}
+	if resp.Meta.RC != "ok" {
+		return nil, fmt.Errorf("REST API error: %s", resp.Meta.Msg)
+	}
 
-	return response.Data, nil
+	var clients []ClientDevice
+	if err := json.Unmarshal(resp.Data, &clients); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal client data: %w", err)
+	}
+
+	return clients, nil
 }
 
-func (c *Client) GetClient(siteID, clientID string) (*ClientDevice, error) {
-	url := fmt.Sprintf("%s/v1/sites/%s/clients/%s", c.BaseURL, siteID, clientID)
+func (c *Client) GetClient(_ string, clientID string) (*ClientDevice, error) {
+	url := c.restUserURL(clientID)
 	req, _ := http.NewRequest(http.MethodGet, url, nil)
 
 	body, err := c.doRequest(req)
@@ -674,16 +713,27 @@ func (c *Client) GetClient(siteID, clientID string) (*ClientDevice, error) {
 		return nil, err
 	}
 
-	var result ClientDevice
-	if err := json.Unmarshal(body, &result); err != nil {
+	var resp restAPIResponse
+	if err := json.Unmarshal(body, &resp); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal client: %w. response body: %s", err, string(body))
 	}
+	if resp.Meta.RC != "ok" {
+		return nil, fmt.Errorf("REST API error: %s", resp.Meta.Msg)
+	}
 
-	return &result, nil
+	var clients []ClientDevice
+	if err := json.Unmarshal(resp.Data, &clients); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal client data: %w", err)
+	}
+	if len(clients) == 0 {
+		return nil, fmt.Errorf("client %q not found", clientID)
+	}
+
+	return &clients[0], nil
 }
 
-func (c *Client) SetClientFixedIP(siteID, clientID, networkID, fixedIP, name string) (*ClientDevice, error) {
-	url := fmt.Sprintf("%s/v1/sites/%s/clients/%s", c.BaseURL, siteID, clientID)
+func (c *Client) SetClientFixedIP(_ string, clientID, networkID, fixedIP, name string) (*ClientDevice, error) {
+	url := c.restUserURL(clientID)
 	update := ClientDevice{
 		UseFixedIP: true,
 		NetworkID:  networkID,
@@ -698,16 +748,27 @@ func (c *Client) SetClientFixedIP(siteID, clientID, networkID, fixedIP, name str
 		return nil, err
 	}
 
-	var result ClientDevice
-	if err := json.Unmarshal(body, &result); err != nil {
+	var resp restAPIResponse
+	if err := json.Unmarshal(body, &resp); err != nil {
 		return nil, err
 	}
+	if resp.Meta.RC != "ok" {
+		return nil, fmt.Errorf("REST API error: %s", resp.Meta.Msg)
+	}
 
-	return &result, nil
+	var clients []ClientDevice
+	if err := json.Unmarshal(resp.Data, &clients); err != nil {
+		return nil, err
+	}
+	if len(clients) == 0 {
+		return nil, fmt.Errorf("no client returned after update")
+	}
+
+	return &clients[0], nil
 }
 
-func (c *Client) UnsetClientFixedIP(siteID, clientID string) error {
-	url := fmt.Sprintf("%s/v1/sites/%s/clients/%s", c.BaseURL, siteID, clientID)
+func (c *Client) UnsetClientFixedIP(_ string, clientID string) error {
+	url := c.restUserURL(clientID)
 	update := map[string]interface{}{
 		"use_fixedip": false,
 	}

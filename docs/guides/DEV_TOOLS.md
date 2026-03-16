@@ -24,7 +24,7 @@ provider "unifi" {
 provider "unifi" {
   host     = "https://localhost:11443/proxy/network/integration"
   username = "admin"
-  password = "testpassword123"
+  password = "Testpassword123!"
   site_id  = "auto"
   insecure = true
 }
@@ -80,13 +80,14 @@ A Docker-based UniFi OS Server instance using the [`ghcr.io/lemker/unifi-os-serv
 **Start:**
 
 ```bash
-make integration-up         # ~2-3 min on first boot
+make integration-up         # ~2-3 min on first boot, 
+# Also make sure to install relevant updates
 ```
 
 **First run only:** The setup wizard must be completed manually:
 
 1. Open https://localhost:11443 (accept the self-signed cert)
-2. Create a local admin account: `admin` / `testpassword123`
+2. Create a local admin account: `admin` / `Testpassword123!`
 3. Skip Ubiquiti cloud sign-in (use offline/local mode)
 4. Re-run `make integration-up` to create test networks
 
@@ -112,16 +113,16 @@ make integration-down       # stops container, removes volumes
 |----------|--------------------------------------------------|
 | URL      | `https://localhost:11443`                        |
 | Username | `admin`                                          |
-| Password | `testpassword123`                                |
+| Password | `Testpassword123!`                                |
 | Site     | `default`                                        |
 
 **Test networks created by setup:**
 
 | Name      | VLAN | Subnet          |
 |-----------|------|-----------------|
-| TestLAN   | 10   | 192.168.10.0/24 |
-| TestIoT   | 20   | 192.168.20.0/24 |
-| TestGuest | 30   | 192.168.30.0/24 |
+| TestLAN   | 10   | 192.168.10.1/24 |
+| TestIoT   | 20   | 192.168.20.1/24 |
+| TestGuest | 30   | 192.168.30.1/24 |
 
 ---
 

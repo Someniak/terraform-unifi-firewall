@@ -119,7 +119,7 @@ func (p *UnifiProvider) Configure(ctx context.Context, req provider.ConfigureReq
 	}
 
 	siteInput := data.SiteID.ValueString()
-	discoveredID, err := discoverSiteID(sites, siteInput)
+	discoveredSite, err := discoverSite(sites, siteInput)
 	if err != nil {
 		resp.Diagnostics.AddError("Site discovery failed", err.Error())
 		return
@@ -128,13 +128,13 @@ func (p *UnifiProvider) Configure(ctx context.Context, req provider.ConfigureReq
 	// Create the final client with the discovered site ID
 	var client *unifi.Client
 	if hasAPIKey {
-		client = unifi.NewClient(data.Host.ValueString(), data.APIKey.ValueString(), discoveredID, data.Insecure.ValueBool())
+		client = unifi.NewClient(data.Host.ValueString(), data.APIKey.ValueString(), discoveredSite.ID, data.Insecure.ValueBool())
 	} else {
 		// Reuse the discovery client — just update the site ID to avoid a second login
-		discoveryClient.SiteID = discoveredID
+		discoveryClient.SiteID = discoveredSite.ID
 		client = discoveryClient
 	}
-
+	client.SiteReference = discoveredSite.InternalReference
 	resp.DataSourceData = client
 	resp.ResourceData = client
 }
@@ -154,25 +154,25 @@ func (p *UnifiProvider) DataSources(ctx context.Context) []func() datasource.Dat
 	}
 }
 
-// discoverSiteID resolves a site input (UUID, name, internal reference, or "auto")
-// to a concrete site ID from the list of available sites.
-func discoverSiteID(sites []unifi.Site, siteInput string) (string, error) {
+// discoverSite resolves a site input (UUID, name, internal reference, or "auto")
+// to a concrete Site from the list of available sites.
+func discoverSite(sites []unifi.Site, siteInput string) (unifi.Site, error) {
 	if siteInput == "auto" {
 		if len(sites) == 1 {
-			return sites[0].ID, nil
+			return sites[0], nil
 		} else if len(sites) == 0 {
-			return "", fmt.Errorf("auto-discovery failed: no sites were found")
+			return unifi.Site{}, fmt.Errorf("auto-discovery failed: no sites were found")
 		}
-		return "", fmt.Errorf("auto-discovery failed: multiple sites exist, please specify site name or UUID")
+		return unifi.Site{}, fmt.Errorf("auto-discovery failed: multiple sites exist, please specify site name or UUID")
 	}
 
 	for _, s := range sites {
 		if s.ID == siteInput || s.Name == siteInput || s.InternalReference == siteInput {
-			return s.ID, nil
+			return s, nil
 		}
 	}
 
-	return "", fmt.Errorf("could not find site matching: %s", siteInput)
+	return unifi.Site{}, fmt.Errorf("could not find site matching: %s", siteInput)
 }
 
 func New(version string) func() provider.Provider {

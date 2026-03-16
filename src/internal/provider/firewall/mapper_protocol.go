@@ -36,9 +36,10 @@ func mapProtocolFromAPI(protocol map[string]interface{}) string {
 
 	for _, key := range []string{"name", "preset", "number", "value"} {
 		if value, ok := protocol[key].(string); ok && value != "" {
-			// Preserve original case — the user writes "TCP"/"UDP" and Terraform
-			// expects the read-back to match the config to avoid perpetual diffs.
-			return value
+			// Lowercase to match the canonical form used in Terraform configs.
+			// mapProtocolToAPI uppercases before sending to the API, so we
+			// reverse that here to prevent perpetual diffs.
+			return strings.ToLower(value)
 		}
 	}
 

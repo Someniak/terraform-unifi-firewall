@@ -622,9 +622,15 @@ func TestDNSPolicy_FullCRUDCycle(t *testing.T) {
 
 // --- Client Devices ---
 
+func newClientWithSiteRef(srvURL string) *Client {
+	c := NewClient(srvURL, "test-key", "site-1", false)
+	c.SiteReference = "default"
+	return c
+}
+
 func TestListClients_HappyPath(t *testing.T) {
 	srv, mock := newMockServer(t)
-	client := NewClient(srv.URL, "test-key", "site-1", false)
+	client := newClientWithSiteRef(srv.URL)
 
 	clients, err := client.ListClients("site-1")
 	if err != nil {
@@ -636,16 +642,16 @@ func TestListClients_HappyPath(t *testing.T) {
 	if clients[0].MAC != "00:11:22:33:44:55" {
 		t.Errorf("expected MAC '00:11:22:33:44:55', got %q", clients[0].MAC)
 	}
-	if mock.GetCallCount("GET", "/v1/sites/site-1/clients") != 1 {
+	if mock.GetCallCount("GET", "/api/s/default/rest/user") != 1 {
 		t.Errorf("expected 1 API call")
 	}
 }
 
 func TestListClients_ServerError(t *testing.T) {
 	srv, mock := newMockServer(t)
-	mock.SetError("GET", "/v1/sites/site-1/clients", 500)
+	mock.SetError("GET", "/api/s/default/rest/user", 500)
 
-	client := NewClient(srv.URL, "test-key", "site-1", false)
+	client := newClientWithSiteRef(srv.URL)
 	_, err := client.ListClients("site-1")
 	if err == nil {
 		t.Fatal("expected error, got nil")
@@ -654,9 +660,9 @@ func TestListClients_ServerError(t *testing.T) {
 
 func TestListClients_MalformedJSON(t *testing.T) {
 	srv, mock := newMockServer(t)
-	mock.SetMalformedResponse("GET", "/v1/sites/site-1/clients")
+	mock.SetMalformedResponse("GET", "/api/s/default/rest/user")
 
-	client := NewClient(srv.URL, "test-key", "site-1", false)
+	client := newClientWithSiteRef(srv.URL)
 	_, err := client.ListClients("site-1")
 	if err == nil {
 		t.Fatal("expected unmarshal error, got nil")
@@ -668,7 +674,7 @@ func TestListClients_MalformedJSON(t *testing.T) {
 
 func TestGetClient_HappyPath(t *testing.T) {
 	srv, _ := newMockServer(t)
-	client := NewClient(srv.URL, "test-key", "site-1", false)
+	client := newClientWithSiteRef(srv.URL)
 
 	dev, err := client.GetClient("site-1", "client-1")
 	if err != nil {
@@ -684,7 +690,7 @@ func TestGetClient_HappyPath(t *testing.T) {
 
 func TestGetClient_NotFound(t *testing.T) {
 	srv, _ := newMockServer(t)
-	client := NewClient(srv.URL, "test-key", "site-1", false)
+	client := newClientWithSiteRef(srv.URL)
 
 	_, err := client.GetClient("site-1", "nonexistent")
 	if err == nil {
@@ -694,9 +700,9 @@ func TestGetClient_NotFound(t *testing.T) {
 
 func TestGetClient_MalformedJSON(t *testing.T) {
 	srv, mock := newMockServer(t)
-	mock.SetMalformedResponse("GET", "/v1/sites/site-1/clients/client-1")
+	mock.SetMalformedResponse("GET", "/api/s/default/rest/user/client-1")
 
-	client := NewClient(srv.URL, "test-key", "site-1", false)
+	client := newClientWithSiteRef(srv.URL)
 	_, err := client.GetClient("site-1", "client-1")
 	if err == nil {
 		t.Fatal("expected unmarshal error, got nil")
@@ -705,7 +711,7 @@ func TestGetClient_MalformedJSON(t *testing.T) {
 
 func TestSetClientFixedIP_HappyPath(t *testing.T) {
 	srv, mock := newMockServer(t)
-	client := NewClient(srv.URL, "test-key", "site-1", false)
+	client := newClientWithSiteRef(srv.URL)
 
 	dev, err := client.SetClientFixedIP("site-1", "client-1", "net-1", "192.168.1.100", "server1")
 	if err != nil {
@@ -732,7 +738,7 @@ func TestSetClientFixedIP_HappyPath(t *testing.T) {
 
 func TestSetClientFixedIP_NotFound(t *testing.T) {
 	srv, _ := newMockServer(t)
-	client := NewClient(srv.URL, "test-key", "site-1", false)
+	client := newClientWithSiteRef(srv.URL)
 
 	_, err := client.SetClientFixedIP("site-1", "nonexistent", "net-1", "192.168.1.100", "test")
 	if err == nil {
@@ -742,7 +748,7 @@ func TestSetClientFixedIP_NotFound(t *testing.T) {
 
 func TestUnsetClientFixedIP_HappyPath(t *testing.T) {
 	srv, mock := newMockServer(t)
-	client := NewClient(srv.URL, "test-key", "site-1", false)
+	client := newClientWithSiteRef(srv.URL)
 
 	// First set a fixed IP
 	_, err := client.SetClientFixedIP("site-1", "client-1", "net-1", "192.168.1.100", "server1")
@@ -767,7 +773,7 @@ func TestUnsetClientFixedIP_HappyPath(t *testing.T) {
 
 func TestUnsetClientFixedIP_NotFound(t *testing.T) {
 	srv, _ := newMockServer(t)
-	client := NewClient(srv.URL, "test-key", "site-1", false)
+	client := newClientWithSiteRef(srv.URL)
 
 	err := client.UnsetClientFixedIP("site-1", "nonexistent")
 	if err == nil {

@@ -48,16 +48,11 @@ func (r *FirewallPolicyResource) ModifyPlan(ctx context.Context, req resource.Mo
 
 	// Smart Default Logic for allow_return_traffic
 	if plan.Action != nil {
-		// If allow_return_traffic is unknown (computed) or null (optional, not set), we set default
-		// Note: In ModifyPlan, if it was null in config, it might be null or unknown in plan depending on schema.
-		// Since it is Optional+Computed, if config is null, plan is Unknown.
 		if plan.Action.AllowReturnTraffic.IsUnknown() || plan.Action.AllowReturnTraffic.IsNull() {
-			actionType := plan.Action.Type.ValueString()
-			// Default to true for ALLOW, false for BLOCK/REJECT
-			defaultValue := (actionType == "ALLOW" || actionType == "allow")
-
-			// Update the plan
-			plan.Action.AllowReturnTraffic = types.BoolValue(defaultValue)
+			// Default to false — the API rejects allowReturnTraffic=true for
+			// certain zone combinations (e.g. External destination). Users can
+			// explicitly set it to true where the API allows it.
+			plan.Action.AllowReturnTraffic = types.BoolValue(false)
 			resp.Diagnostics.Append(resp.Plan.Set(ctx, &plan)...)
 		}
 	}

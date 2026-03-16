@@ -89,8 +89,8 @@ func TestMapFromAPI_AllowReturnTraffic_DefaultAllow(t *testing.T) {
 
 	r.mapFromAPI(context.Background(), p, &data)
 
-	if !data.Action.AllowReturnTraffic.ValueBool() {
-		t.Error("expected AllowReturnTraffic=true default for ALLOW action")
+	if data.Action.AllowReturnTraffic.ValueBool() {
+		t.Error("expected AllowReturnTraffic=false when API omits field")
 	}
 }
 
@@ -108,17 +108,18 @@ func TestMapFromAPI_AllowReturnTraffic_DefaultBlock(t *testing.T) {
 	}
 }
 
-func TestMapFromAPI_AllowReturnTraffic_CaseInsensitive(t *testing.T) {
+func TestMapFromAPI_AllowReturnTraffic_ExplicitTrue(t *testing.T) {
 	r := newTestResource()
 	p := minimalAPIPolicy()
-	p.Action.Type = "allow"
-	p.Action.AllowReturnTraffic = nil
+	p.Action.Type = "ALLOW"
+	val := true
+	p.Action.AllowReturnTraffic = &val
 	var data FirewallPolicyResourceModel
 
 	r.mapFromAPI(context.Background(), p, &data)
 
 	if !data.Action.AllowReturnTraffic.ValueBool() {
-		t.Error("expected AllowReturnTraffic=true for lowercase 'allow'")
+		t.Error("expected AllowReturnTraffic=true when API returns true")
 	}
 }
 
@@ -139,11 +140,9 @@ func TestMapFromAPI_Schedule_OneTimeOnly(t *testing.T) {
 	r := newTestResource()
 	p := minimalAPIPolicy()
 	p.Schedule = &unifi.FirewallSchedule{
-		Mode: "ONE_TIME_ONLY",
-		TimeFilter: map[string]interface{}{
-			"start": "2025-01-01T00:00:00Z",
-			"stop":  "2025-01-02T00:00:00Z",
-		},
+		Mode:  "ONE_TIME_ONLY",
+		Start: "2025-01-01T00:00:00Z",
+		Stop:  "2025-01-02T00:00:00Z",
 	}
 	var data FirewallPolicyResourceModel
 
@@ -161,52 +160,14 @@ func TestMapFromAPI_Schedule_OneTimeOnly(t *testing.T) {
 	if data.Schedule.Stop.ValueString() != "2025-01-02T00:00:00Z" {
 		t.Errorf("expected stop '2025-01-02T00:00:00Z', got %q", data.Schedule.Stop.ValueString())
 	}
-	// ONE_TIME_ONLY should NOT set TimeRange
-	if data.Schedule.TimeRange != nil {
-		t.Error("expected nil TimeRange for ONE_TIME_ONLY")
-	}
-}
-
-func TestMapFromAPI_Schedule_EveryDay(t *testing.T) {
-	r := newTestResource()
-	p := minimalAPIPolicy()
-	p.Schedule = &unifi.FirewallSchedule{
-		Mode: "EVERY_DAY",
-		TimeFilter: map[string]interface{}{
-			"start": "08:00",
-			"stop":  "17:00",
-		},
-	}
-	var data FirewallPolicyResourceModel
-
-	r.mapFromAPI(context.Background(), p, &data)
-
-	if data.Schedule == nil {
-		t.Fatal("expected schedule")
-	}
-	if data.Schedule.TimeRange == nil {
-		t.Fatal("expected TimeRange for EVERY_DAY")
-	}
-	if data.Schedule.TimeRange.Start.ValueString() != "08:00" {
-		t.Errorf("expected '08:00', got %q", data.Schedule.TimeRange.Start.ValueString())
-	}
-	if data.Schedule.TimeRange.Stop.ValueString() != "17:00" {
-		t.Errorf("expected '17:00', got %q", data.Schedule.TimeRange.Stop.ValueString())
-	}
 }
 
 func TestMapFromAPI_Schedule_EveryWeek(t *testing.T) {
 	r := newTestResource()
 	p := minimalAPIPolicy()
 	p.Schedule = &unifi.FirewallSchedule{
-		Mode: "EVERY_WEEK",
-		TimeFilter: map[string]interface{}{
-			"days": []interface{}{"MONDAY", "FRIDAY"},
-			"timeRange": map[string]interface{}{
-				"start": "09:00",
-				"stop":  "18:00",
-			},
-		},
+		Mode:         "EVERY_WEEK",
+		RepeatOnDays: []string{"MONDAY", "FRIDAY"},
 	}
 	var data FirewallPolicyResourceModel
 
@@ -222,12 +183,6 @@ func TestMapFromAPI_Schedule_EveryWeek(t *testing.T) {
 	data.Schedule.DaysOfWeek.ElementsAs(context.Background(), &days, false)
 	if len(days) != 2 {
 		t.Errorf("expected 2 days, got %d", len(days))
-	}
-	if data.Schedule.TimeRange == nil {
-		t.Fatal("expected TimeRange for EVERY_WEEK")
-	}
-	if data.Schedule.TimeRange.Start.ValueString() != "09:00" {
-		t.Errorf("expected '09:00', got %q", data.Schedule.TimeRange.Start.ValueString())
 	}
 }
 
@@ -268,8 +223,8 @@ func TestMapFromAPI_ProtocolFilter_NamedProtocol(t *testing.T) {
 	if data.IPProtocolScope.ProtocolFilter.Type.ValueString() != "PROTOCOL" {
 		t.Errorf("expected type 'PROTOCOL' (reverse mapped), got %q", data.IPProtocolScope.ProtocolFilter.Type.ValueString())
 	}
-	if data.IPProtocolScope.ProtocolFilter.Protocol.ValueString() != "TCP" {
-		t.Errorf("expected protocol 'TCP', got %q", data.IPProtocolScope.ProtocolFilter.Protocol.ValueString())
+	if data.IPProtocolScope.ProtocolFilter.Protocol.ValueString() != "tcp" {
+		t.Errorf("expected protocol 'tcp', got %q", data.IPProtocolScope.ProtocolFilter.Protocol.ValueString())
 	}
 }
 

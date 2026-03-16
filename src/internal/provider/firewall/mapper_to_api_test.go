@@ -147,10 +147,6 @@ func TestMapToAPI_Schedule_EveryDay(t *testing.T) {
 	data := minimalTFModel()
 	data.Schedule = &FirewallScheduleModel{
 		Mode: types.StringValue("EVERY_DAY"),
-		TimeRange: &TimeRangeModel{
-			Start: types.StringValue("08:00"),
-			Stop:  types.StringValue("17:00"),
-		},
 	}
 
 	policy := r.mapToAPI(context.Background(), data)
@@ -161,23 +157,16 @@ func TestMapToAPI_Schedule_EveryDay(t *testing.T) {
 	if policy.Schedule.Mode != "EVERY_DAY" {
 		t.Errorf("expected 'EVERY_DAY', got %q", policy.Schedule.Mode)
 	}
-	if policy.Schedule.TimeFilter == nil {
-		t.Fatal("expected TimeFilter")
-	}
 }
 
 func TestMapToAPI_Schedule_EveryWeek(t *testing.T) {
 	r := newTestResource()
 	ctx := context.Background()
 	data := minimalTFModel()
-	daysSet, _ := types.SetValueFrom(ctx, types.StringType, []string{"MONDAY", "FRIDAY"})
+	daysSet, _ := types.SetValueFrom(ctx, types.StringType, []string{"MON", "FRI"})
 	data.Schedule = &FirewallScheduleModel{
 		Mode:       types.StringValue("EVERY_WEEK"),
 		DaysOfWeek: daysSet,
-		TimeRange: &TimeRangeModel{
-			Start: types.StringValue("09:00"),
-			Stop:  types.StringValue("18:00"),
-		},
 	}
 
 	policy := r.mapToAPI(ctx, data)
@@ -187,6 +176,9 @@ func TestMapToAPI_Schedule_EveryWeek(t *testing.T) {
 	}
 	if policy.Schedule.Mode != "EVERY_WEEK" {
 		t.Errorf("expected 'EVERY_WEEK', got %q", policy.Schedule.Mode)
+	}
+	if len(policy.Schedule.RepeatOnDays) != 2 {
+		t.Fatalf("expected 2 RepeatOnDays, got %d", len(policy.Schedule.RepeatOnDays))
 	}
 }
 

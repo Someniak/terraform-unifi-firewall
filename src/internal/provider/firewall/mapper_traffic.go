@@ -168,9 +168,7 @@ func mapTrafficFilterFromAPI(ctx context.Context, apiTF *unifi.TrafficFilter) *T
 		if apiTF.PortFilter.Type != "" {
 			tf.PortFilter.Type = types.StringValue(apiTF.PortFilter.Type)
 		}
-		if apiTF.PortFilter.MatchOpposite {
-			tf.PortFilter.MatchOpposite = types.BoolValue(true)
-		}
+		tf.PortFilter.MatchOpposite = types.BoolValue(apiTF.PortFilter.MatchOpposite)
 		hasContent = true
 	}
 
@@ -179,9 +177,7 @@ func mapTrafficFilterFromAPI(ctx context.Context, apiTF *unifi.TrafficFilter) *T
 		if apiTF.IPAddressFilter.Type != "" {
 			tf.IPAddressFilter.Type = types.StringValue(apiTF.IPAddressFilter.Type)
 		}
-		if apiTF.IPAddressFilter.MatchOpposite {
-			tf.IPAddressFilter.MatchOpposite = types.BoolValue(true)
-		}
+		tf.IPAddressFilter.MatchOpposite = types.BoolValue(apiTF.IPAddressFilter.MatchOpposite)
 		var ms []string
 		for _, item := range apiTF.IPAddressFilter.Items {
 			ms = append(ms, item.Value)
@@ -194,9 +190,7 @@ func mapTrafficFilterFromAPI(ctx context.Context, apiTF *unifi.TrafficFilter) *T
 		tf.NetworkFilter = &NetworkFilterModel{
 			Type: types.StringValue("NETWORK"),
 		}
-		if apiTF.NetworkFilter.MatchOpposite {
-			tf.NetworkFilter.MatchOpposite = types.BoolValue(true)
-		}
+		tf.NetworkFilter.MatchOpposite = types.BoolValue(apiTF.NetworkFilter.MatchOpposite)
 		tf.NetworkFilter.Items, _ = types.SetValueFrom(ctx, types.StringType, apiTF.NetworkFilter.NetworkIDs)
 		hasContent = true
 	}

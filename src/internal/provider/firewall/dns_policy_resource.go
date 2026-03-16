@@ -131,13 +131,9 @@ func (r *DNSPolicyResource) Configure(ctx context.Context, req resource.Configur
 	r.client = client
 }
 
-// effectiveSiteID returns the site ID to use for API calls. If the resource
-// has a per-resource site_id override, use that; otherwise fall back to the
-// provider-level default. This avoids mutating shared client state.
-func (r *DNSPolicyResource) effectiveSiteID(siteID types.String) string {
-	if !siteID.IsNull() && !siteID.IsUnknown() {
-		return siteID.ValueString()
-	}
+// effectiveSiteID returns the site ID to use for DNS API calls. Always uses
+// the provider-level discovered site ID to avoid stale values from state.
+func (r *DNSPolicyResource) effectiveSiteID(_ types.String) string {
 	return r.client.SiteID
 }
 

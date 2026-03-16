@@ -46,47 +46,18 @@ func (r *FirewallPolicyResource) mapToAPI(ctx context.Context, data FirewallPoli
 
 		mode := data.Schedule.Mode.ValueString()
 		if mode == "ONE_TIME_ONLY" {
-			policy.Schedule.TimeFilter = struct {
-				Start string `json:"start,omitempty"`
-				Stop  string `json:"stop,omitempty"`
-			}{
-				Start: data.Schedule.Start.ValueString(),
-				Stop:  data.Schedule.Stop.ValueString(),
+			if !data.Schedule.Start.IsNull() {
+				policy.Schedule.Start = data.Schedule.Start.ValueString()
 			}
-		} else if mode == "EVERY_DAY" {
-			if data.Schedule.TimeRange != nil {
-				policy.Schedule.TimeFilter = struct {
-					Start string `json:"start"`
-					Stop  string `json:"stop"`
-				}{
-					Start: data.Schedule.TimeRange.Start.ValueString(),
-					Stop:  data.Schedule.TimeRange.Stop.ValueString(),
-				}
+			if !data.Schedule.Stop.IsNull() {
+				policy.Schedule.Stop = data.Schedule.Stop.ValueString()
 			}
 		} else if mode == "EVERY_WEEK" {
-			var days []string
 			if !data.Schedule.DaysOfWeek.IsNull() {
+				var days []string
 				data.Schedule.DaysOfWeek.ElementsAs(ctx, &days, false)
+				policy.Schedule.RepeatOnDays = mapDayNamesToAPI(days)
 			}
-			tf := struct {
-				Days      []string `json:"days"`
-				TimeRange *struct {
-					Start string `json:"start"`
-					Stop  string `json:"stop"`
-				} `json:"timeRange,omitempty"`
-			}{
-				Days: days,
-			}
-			if data.Schedule.TimeRange != nil {
-				tf.TimeRange = &struct {
-					Start string `json:"start"`
-					Stop  string `json:"stop"`
-				}{
-					Start: data.Schedule.TimeRange.Start.ValueString(),
-					Stop:  data.Schedule.TimeRange.Stop.ValueString(),
-				}
-			}
-			policy.Schedule.TimeFilter = tf
 		}
 	}
 
@@ -118,4 +89,22 @@ func (r *FirewallPolicyResource) mapToAPI(ctx context.Context, data FirewallPoli
 	}
 
 	return policy
+}
+
+// mapDayNamesToAPI converts short day names (MON) to the API's full format (MONDAY).
+// Passes through values that are already in full format.
+func mapDayNamesToAPI(days []string) []string {
+	shortToFull := map[string]string{
+		"MON": "MONDAY", "TUE": "TUESDAY", "WED": "WEDNESDAY",
+		"THU": "THURSDAY", "FRI": "FRIDAY", "SAT": "SATURDAY", "SUN": "SUNDAY",
+	}
+	out := make([]string, len(days))
+	for i, d := range days {
+		if full, ok := shortToFull[d]; ok {
+			out[i] = full
+		} else {
+			out[i] = d
+		}
+	}
+	return out
 }

@@ -174,6 +174,24 @@ func (m *mockUnifiAPI) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Route: REST API /api/s/{site}/rest/user (legacy client CRUD)
+	if strings.HasPrefix(path, "/api/s/") {
+		restParts := strings.Split(strings.TrimPrefix(path, "/api/s/"), "/")
+		// /api/s/{siteRef}/rest/user or /api/s/{siteRef}/rest/user/{id}
+		if len(restParts) >= 3 && restParts[1] == "rest" && restParts[2] == "user" {
+			// Map siteRef to siteID (for mock, "default" -> "site-1")
+			siteID := "site-1"
+			if len(restParts) == 3 {
+				// Collection
+				m.handleRestClients(w, r, siteID)
+			} else {
+				// Single item
+				m.handleRestClient(w, r, siteID, restParts[3])
+			}
+			return
+		}
+	}
+
 	// Route: GET /v1/sites
 	if path == "/v1/sites" && method == http.MethodGet {
 		m.mu.Lock()
@@ -230,18 +248,6 @@ func (m *mockUnifiAPI) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// Route: DNS policies single item
 	if len(parts) == 4 && parts[1] == "dns" && parts[2] == "policies" {
 		m.handleDNSPolicy(w, r, siteID, parts[3])
-		return
-	}
-
-	// Route: clients collection
-	if len(parts) == 2 && parts[1] == "clients" && method == http.MethodGet {
-		m.handleClients(w, r, siteID)
-		return
-	}
-
-	// Route: clients single item
-	if len(parts) == 3 && parts[1] == "clients" {
-		m.handleClient(w, r, siteID, parts[2])
 		return
 	}
 
@@ -386,7 +392,23 @@ func (m *mockUnifiAPI) handleDNSPolicy(w http.ResponseWriter, r *http.Request, s
 	}
 }
 
-func (m *mockUnifiAPI) handleClients(w http.ResponseWriter, r *http.Request, siteID string) {
+// REST API handlers wrap responses in {"meta":{"rc":"ok"},"data":[...]}
+
+func (m *mockUnifiAPI) restOK(w http.ResponseWriter, data interface{}) {
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"meta": map[string]string{"rc": "ok"},
+		"data": data,
+	})
+}
+
+func (m *mockUnifiAPI) restError(w http.ResponseWriter, status int, msg string) {
+	w.WriteHeader(status)
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"meta": map[string]string{"rc": "error", "msg": msg},
+	})
+}
+
+func (m *mockUnifiAPI) handleRestClients(w http.ResponseWriter, r *http.Request, siteID string) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -394,10 +416,10 @@ func (m *mockUnifiAPI) handleClients(w http.ResponseWriter, r *http.Request, sit
 	if clients == nil {
 		clients = []ClientDevice{}
 	}
-	json.NewEncoder(w).Encode(map[string]interface{}{"data": clients})
+	m.restOK(w, clients)
 }
 
-func (m *mockUnifiAPI) handleClient(w http.ResponseWriter, r *http.Request, siteID, clientID string) {
+func (m *mockUnifiAPI) handleRestClient(w http.ResponseWriter, r *http.Request, siteID, clientID string) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -413,15 +435,13 @@ func (m *mockUnifiAPI) handleClient(w http.ResponseWriter, r *http.Request, site
 	switch r.Method {
 	case http.MethodGet:
 		if idx == -1 {
-			w.WriteHeader(http.StatusNotFound)
-			json.NewEncoder(w).Encode(map[string]string{"error": "not found"})
+			m.restError(w, http.StatusNotFound, "api.err.ClientNotFound")
 			return
 		}
-		json.NewEncoder(w).Encode(clients[idx])
+		m.restOK(w, []ClientDevice{clients[idx]})
 	case http.MethodPut:
 		if idx == -1 {
-			w.WriteHeader(http.StatusNotFound)
-			json.NewEncoder(w).Encode(map[string]string{"error": "not found"})
+			m.restError(w, http.StatusNotFound, "api.err.ClientNotFound")
 			return
 		}
 		body, _ := io.ReadAll(r.Body)
@@ -436,7 +456,7 @@ func (m *mockUnifiAPI) handleClient(w http.ResponseWriter, r *http.Request, site
 			update.Name = clients[idx].Name
 		}
 		m.clients[siteID][idx] = update
-		json.NewEncoder(w).Encode(update)
+		m.restOK(w, []ClientDevice{update})
 	default:
 		w.WriteHeader(http.StatusMethodNotAllowed)
 	}
