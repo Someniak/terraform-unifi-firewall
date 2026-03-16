@@ -154,6 +154,26 @@ func (m *mockUnifiAPI) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Route: POST /api/login (legacy cookie auth)
+	if path == "/api/login" && method == http.MethodPost {
+		body, _ := io.ReadAll(r.Body)
+		var creds struct {
+			Username string `json:"username"`
+			Password string `json:"password"`
+		}
+		json.Unmarshal(body, &creds)
+		if creds.Username == "admin" && creds.Password == "password" {
+			http.SetCookie(w, &http.Cookie{Name: "TOKEN", Value: "mock-session-token", Path: "/"})
+			http.SetCookie(w, &http.Cookie{Name: "csrf_token", Value: "mock-csrf-token", Path: "/"})
+			w.Header().Set("X-CSRF-Token", "mock-csrf-token")
+			json.NewEncoder(w).Encode(map[string]interface{}{"meta": map[string]string{"rc": "ok"}, "data": []interface{}{}})
+		} else {
+			w.WriteHeader(http.StatusUnauthorized)
+			json.NewEncoder(w).Encode(map[string]string{"error": "invalid credentials"})
+		}
+		return
+	}
+
 	// Route: GET /v1/sites
 	if path == "/v1/sites" && method == http.MethodGet {
 		m.mu.Lock()

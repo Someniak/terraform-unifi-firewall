@@ -10,6 +10,8 @@ terraform {
 provider "unifi" {
   host     = var.unifi_host
   api_key  = var.unifi_api_key
+  username = var.unifi_username
+  password = var.unifi_password
   site_id  = var.unifi_site_id
   insecure = var.unifi_insecure
 }

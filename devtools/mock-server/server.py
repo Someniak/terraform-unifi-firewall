@@ -209,18 +209,45 @@ def validate_zone_refs(site_id, data):
 
 
 # ---------------------------------------------------------------------------
-# API key check (accepts anything, just logs it)
+# Auth check (API key or session cookie)
 # ---------------------------------------------------------------------------
+
+sessions: set[str] = set()
 
 
 @app.before_request
-def check_api_key():
-    # Skip for UI routes
-    if request.path.startswith("/ui") or request.path.startswith("/sse"):
+def check_auth():
+    # Skip for UI routes, SSE, and the login endpoint
+    if request.path.startswith("/ui") or request.path.startswith("/sse") or request.path == "/api/login":
         return
-    api_key = request.headers.get("X-API-Key", "")
-    if not api_key:
-        return error_response(401, "unauthorized", "Missing X-API-Key header")
+    # Accept API key
+    if request.headers.get("X-API-Key", ""):
+        return
+    # Accept session cookie
+    if request.cookies.get("TOKEN") in sessions:
+        return
+    return error_response(401, "unauthorized", "Missing authentication (X-API-Key header or session cookie)")
+
+
+# ---------------------------------------------------------------------------
+# Legacy login (cookie-based auth)
+# ---------------------------------------------------------------------------
+
+@app.route("/api/login", methods=["POST"])
+def api_login():
+    data = request.get_json()
+    username = data.get("username", "")
+    password = data.get("password", "")
+    # Accept any non-empty credentials
+    if not username or not password:
+        return error_response(401, "unauthorized", "Missing username or password")
+    token = uuid.uuid4().hex
+    sessions.add(token)
+    log_event("LOGIN", "auth", username)
+    resp = jsonify({"meta": {"rc": "ok"}, "data": []})
+    resp.set_cookie("TOKEN", token, path="/")
+    resp.set_cookie("csrf_token", uuid.uuid4().hex, path="/")
+    return resp
 
 
 # ---------------------------------------------------------------------------

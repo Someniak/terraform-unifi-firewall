@@ -7,8 +7,16 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/http/cookiejar"
 	"sync"
 	"time"
+)
+
+type authMode int
+
+const (
+	authModeAPIKey authMode = iota
+	authModeCookie
 )
 
 // cacheEntry holds a cached API response with an expiration time.
@@ -33,6 +41,9 @@ type Client struct {
 	Insecure   bool
 	HTTPClient *http.Client
 
+	authMode  authMode
+	csrfToken string
+
 	mu             sync.Mutex
 	zoneCache      *cacheEntry[[]FirewallZone]
 	networkCache   *cacheEntry[[]Network]
@@ -54,6 +65,77 @@ func NewClient(baseUrl, apiKey, siteId string, insecure bool) *Client {
 			Transport: tr,
 		},
 	}
+}
+
+// NewClientWithCredentials creates a client that authenticates via legacy
+// cookie-based login (POST /api/login). This is used for self-hosted UniFi
+// Network Application instances that don't support API keys.
+func NewClientWithCredentials(baseURL, username, password, siteID string, insecure bool) (*Client, error) {
+	jar, err := cookiejar.New(nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create cookie jar: %w", err)
+	}
+
+	tr := &http.Transport{
+		TLSClientConfig: &tls.Config{InsecureSkipVerify: insecure},
+	}
+
+	c := &Client{
+		BaseURL:  baseURL,
+		SiteID:   siteID,
+		Insecure: insecure,
+		authMode: authModeCookie,
+		HTTPClient: &http.Client{
+			Timeout:   time.Minute,
+			Transport: tr,
+			Jar:       jar,
+		},
+	}
+
+	if err := c.login(username, password); err != nil {
+		return nil, fmt.Errorf("login failed: %w", err)
+	}
+
+	return c, nil
+}
+
+func (c *Client) login(username, password string) error {
+	loginURL := fmt.Sprintf("%s/api/login", c.BaseURL)
+	payload, _ := json.Marshal(map[string]string{
+		"username": username,
+		"password": password,
+	})
+
+	req, err := http.NewRequest(http.MethodPost, loginURL, bytes.NewBuffer(payload))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.HTTPClient.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("login returned status %d: %s", resp.StatusCode, string(body))
+	}
+
+	// Extract CSRF token from response header or cookie
+	csrfToken := resp.Header.Get("X-CSRF-Token")
+	if csrfToken == "" {
+		for _, cookie := range resp.Cookies() {
+			if cookie.Name == "csrf_token" {
+				csrfToken = cookie.Value
+				break
+			}
+		}
+	}
+	c.csrfToken = csrfToken
+
+	return nil
 }
 
 // InvalidateCache clears all cached data. Call after any mutation
@@ -82,10 +164,18 @@ func (c *Client) invalidateDNSPolicyCache() {
 }
 
 func (c *Client) doRequest(req *http.Request) ([]byte, error) {
-	req.Header.Set("X-API-Key", c.APIKey)
 	req.Header.Set("Accept", "application/json")
 	if req.Body != nil {
 		req.Header.Set("Content-Type", "application/json")
+	}
+
+	switch c.authMode {
+	case authModeAPIKey:
+		req.Header.Set("X-API-Key", c.APIKey)
+	case authModeCookie:
+		if c.csrfToken != "" {
+			req.Header.Set("X-CSRF-Token", c.csrfToken)
+		}
 	}
 
 	res, err := c.HTTPClient.Do(req)

@@ -112,11 +112,8 @@ ADMIN_EXISTS=$(docker exec unifi-db mongosh --quiet --username "$MONGO_USER" --p
 if [ "$ADMIN_EXISTS" = "0" ]; then
     log "Seeding MongoDB with admin user and default site..."
 
-    # Generate SHA-512 password hash
-    PASS_HASH=$(python3 -c "
-import crypt
-print(crypt.crypt('$ADMIN_PASS', '\$6\$rounds=656000\$unifisalt'))
-")
+    # Generate SHA-512 password hash inside the mongo container (macOS removed crypt module in Python 3.13+)
+    PASS_HASH=$(docker exec unifi-db openssl passwd -6 -salt unifisalt "$ADMIN_PASS")
 
     # Seed the database: site + admin + privilege
     docker exec unifi-db mongosh --quiet --username "$MONGO_USER" --password "$MONGO_PASS" \
@@ -169,7 +166,7 @@ fi
 log "Logging in as $ADMIN_USER..."
 LOGIN_RESULT=$(api_call POST "/api/login" "{\"username\":\"$ADMIN_USER\",\"password\":\"$ADMIN_PASS\"}")
 
-if echo "$LOGIN_RESULT" | grep -q '"ok":true'; then
+if echo "$LOGIN_RESULT" | grep -q '"rc":"ok"'; then
     log "Login successful."
 else
     log "WARNING: Login may have failed. Response: $LOGIN_RESULT"
@@ -229,28 +226,24 @@ log ""
 log "UniFi Network Application: $UNIFI_URL"
 log "Admin credentials:         $ADMIN_USER / $ADMIN_PASS"
 log ""
-log "--- API Key Setup (one-time manual step) ---"
-log ""
-log "1. Open $UNIFI_URL in your browser"
-log "2. Log in with: $ADMIN_USER / $ADMIN_PASS"
-log "3. Go to: Settings > System > Advanced"
-log "4. Look for 'Integrations' or 'API' section"
-log "5. Generate a new API key"
-log "6. Save it to devtools/integration/.env as:"
-log ""
-log "   UNIFI_HOST=$UNIFI_URL"
-log "   UNIFI_API_KEY=<your-api-key>"
-log "   UNIFI_SITE_ID=default"
-log "   UNIFI_INSECURE=true"
-log ""
 
-# Write partial .env (user fills in API key)
+# Write .env with username/password auth (no API key needed)
 cat > .env <<EOF
 UNIFI_HOST=$UNIFI_URL
-UNIFI_API_KEY=
+UNIFI_USERNAME=$ADMIN_USER
+UNIFI_PASSWORD=$ADMIN_PASS
 UNIFI_SITE_ID=default
 UNIFI_INSECURE=true
 EOF
 
-log "A partial .env file has been written to devtools/integration/.env"
-log "Fill in the UNIFI_API_KEY after generating it in the UI."
+log "Provider config (using legacy cookie auth):"
+log ""
+log '  provider "unifi" {'
+log "    host     = \"$UNIFI_URL\""
+log "    username = \"$ADMIN_USER\""
+log "    password = \"$ADMIN_PASS\""
+log '    site_id  = "default"'
+log '    insecure = true'
+log '  }'
+log ""
+log ".env written to devtools/integration/.env"

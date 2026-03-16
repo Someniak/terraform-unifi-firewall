@@ -5,8 +5,22 @@ variable "unifi_host" {
 
 variable "unifi_api_key" {
   type        = string
-  description = "The API key for authentication"
+  description = "The API key for authentication (use this OR username+password)"
   sensitive   = true
+  default     = null
+}
+
+variable "unifi_username" {
+  type        = string
+  description = "Username for legacy cookie-based auth (use this OR api_key)"
+  default     = null
+}
+
+variable "unifi_password" {
+  type        = string
+  description = "Password for legacy cookie-based auth"
+  sensitive   = true
+  default     = null
 }
 
 variable "unifi_site_id" {

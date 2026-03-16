@@ -40,7 +40,7 @@ See the [Firewall Guide](docs/guides/FIREWALL_GUIDE.md) and [examples/firewall_p
 
 ## Development
 
-For local testing with the mock UniFi API server, see the [Dev Tools Guide](docs/guides/DEV_TOOLS.md).
+For local testing (mock server and Docker integration), see the [Development & Testing Guide](docs/guides/DEV_TOOLS.md).
 
 ### Prerequisites
 

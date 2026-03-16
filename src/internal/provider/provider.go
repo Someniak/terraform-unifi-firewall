@@ -21,6 +21,8 @@ type UnifiProvider struct {
 type UnifiProviderModel struct {
 	Host     types.String `tfsdk:"host"`
 	APIKey   types.String `tfsdk:"api_key"`
+	Username types.String `tfsdk:"username"`
+	Password types.String `tfsdk:"password"`
 	SiteID   types.String `tfsdk:"site_id"`
 	Insecure types.Bool   `tfsdk:"insecure"`
 }
@@ -37,7 +39,14 @@ func (p *UnifiProvider) Schema(ctx context.Context, req provider.SchemaRequest, 
 				Required: true,
 			},
 			"api_key": schema.StringAttribute{
-				Required:  true,
+				Optional:  true,
+				Sensitive: true,
+			},
+			"username": schema.StringAttribute{
+				Optional: true,
+			},
+			"password": schema.StringAttribute{
+				Optional:  true,
 				Sensitive: true,
 			},
 			"site_id": schema.StringAttribute{
@@ -54,9 +63,55 @@ func (p *UnifiProvider) Configure(ctx context.Context, req provider.ConfigureReq
 	var data UnifiProviderModel
 
 	resp.Diagnostics.Append(req.Config.Get(ctx, &data)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
 
-	// Discovery Logic
-	discoveryClient := unifi.NewClient(data.Host.ValueString(), data.APIKey.ValueString(), "", data.Insecure.ValueBool())
+	hasAPIKey := !data.APIKey.IsNull() && !data.APIKey.IsUnknown()
+	hasUsername := !data.Username.IsNull() && !data.Username.IsUnknown()
+	hasPassword := !data.Password.IsNull() && !data.Password.IsUnknown()
+
+	if hasAPIKey && (hasUsername || hasPassword) {
+		resp.Diagnostics.AddError(
+			"Conflicting authentication",
+			"Specify either 'api_key' or 'username'+'password', not both.",
+		)
+		return
+	}
+	if !hasAPIKey && !hasUsername {
+		resp.Diagnostics.AddError(
+			"Missing authentication",
+			"Either 'api_key' or both 'username' and 'password' must be provided.",
+		)
+		return
+	}
+	if hasUsername && !hasPassword {
+		resp.Diagnostics.AddError(
+			"Missing password",
+			"'password' is required when 'username' is specified.",
+		)
+		return
+	}
+
+	// Create the appropriate client for site discovery
+	var discoveryClient *unifi.Client
+	if hasAPIKey {
+		discoveryClient = unifi.NewClient(data.Host.ValueString(), data.APIKey.ValueString(), "", data.Insecure.ValueBool())
+	} else {
+		var err error
+		discoveryClient, err = unifi.NewClientWithCredentials(
+			data.Host.ValueString(),
+			data.Username.ValueString(),
+			data.Password.ValueString(),
+			"",
+			data.Insecure.ValueBool(),
+		)
+		if err != nil {
+			resp.Diagnostics.AddError("Authentication failed", err.Error())
+			return
+		}
+	}
+
 	sites, err := discoveryClient.ListSites()
 	if err != nil {
 		resp.Diagnostics.AddError("Error listing sites for discovery", err.Error())
@@ -64,13 +119,21 @@ func (p *UnifiProvider) Configure(ctx context.Context, req provider.ConfigureReq
 	}
 
 	siteInput := data.SiteID.ValueString()
-	discoveredID, err2 := discoverSiteID(sites, siteInput)
-	if err2 != nil {
-		resp.Diagnostics.AddError("Site discovery failed", err2.Error())
+	discoveredID, err := discoverSiteID(sites, siteInput)
+	if err != nil {
+		resp.Diagnostics.AddError("Site discovery failed", err.Error())
 		return
 	}
 
-	client := unifi.NewClient(data.Host.ValueString(), data.APIKey.ValueString(), discoveredID, data.Insecure.ValueBool())
+	// Create the final client with the discovered site ID
+	var client *unifi.Client
+	if hasAPIKey {
+		client = unifi.NewClient(data.Host.ValueString(), data.APIKey.ValueString(), discoveredID, data.Insecure.ValueBool())
+	} else {
+		// Reuse the discovery client — just update the site ID to avoid a second login
+		discoveryClient.SiteID = discoveredID
+		client = discoveryClient
+	}
 
 	resp.DataSourceData = client
 	resp.ResourceData = client

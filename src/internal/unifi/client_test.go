@@ -788,3 +788,77 @@ func containsStr(s, sub string) bool {
 	}
 	return false
 }
+
+// --- Cookie Auth ---
+
+func TestNewClientWithCredentials_HappyPath(t *testing.T) {
+	srv, _ := newMockServer(t)
+
+	client, err := NewClientWithCredentials(srv.URL, "admin", "password", "site-1", false)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Verify the client can make API calls with the session cookie
+	sites, err := client.ListSites()
+	if err != nil {
+		t.Fatalf("unexpected error listing sites: %v", err)
+	}
+	if len(sites) != 1 {
+		t.Fatalf("expected 1 site, got %d", len(sites))
+	}
+}
+
+func TestNewClientWithCredentials_BadPassword(t *testing.T) {
+	srv, _ := newMockServer(t)
+
+	_, err := NewClientWithCredentials(srv.URL, "admin", "wrong", "site-1", false)
+	if err == nil {
+		t.Fatal("expected error for bad credentials, got nil")
+	}
+}
+
+func TestNewClientWithCredentials_CSRFToken(t *testing.T) {
+	srv, mock := newMockServer(t)
+
+	client, err := NewClientWithCredentials(srv.URL, "admin", "password", "site-1", false)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if client.csrfToken != "mock-csrf-token" {
+		t.Errorf("expected csrf token 'mock-csrf-token', got %q", client.csrfToken)
+	}
+	if mock.GetCallCount("POST", "/api/login") != 1 {
+		t.Errorf("expected 1 login call")
+	}
+}
+
+func TestNewClientWithCredentials_NoAPIKeyHeader(t *testing.T) {
+	// Verify that cookie auth does NOT send X-API-Key header
+	var capturedHeaders http.Header
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/api/login" {
+			w.Header().Set("X-CSRF-Token", "test-csrf")
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte(`{"meta":{"rc":"ok"}}`))
+			return
+		}
+		capturedHeaders = r.Header.Clone()
+		w.Write([]byte(`{"data":[]}`))
+	}))
+	defer srv.Close()
+
+	client, err := NewClientWithCredentials(srv.URL, "admin", "password", "site-1", false)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	client.ListSites()
+
+	if capturedHeaders.Get("X-API-Key") != "" {
+		t.Error("cookie auth should not send X-API-Key header")
+	}
+	if capturedHeaders.Get("X-CSRF-Token") != "test-csrf" {
+		t.Errorf("expected X-CSRF-Token 'test-csrf', got %q", capturedHeaders.Get("X-CSRF-Token"))
+	}
+}
