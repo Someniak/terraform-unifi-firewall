@@ -44,3 +44,11 @@ clean:
 	rm -rf bin/
 	rm -rf examples/.terraform
 	rm -f examples/.terraform.lock.hcl
+
+# Integration test environment (real UniFi Network Application in Docker)
+integration-up:
+	cd devtools/integration && docker compose up -d
+	cd devtools/integration && bash setup.sh
+
+integration-down:
+	cd devtools/integration && bash teardown.sh
