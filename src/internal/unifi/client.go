@@ -11,6 +11,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"golang.org/x/sync/singleflight"
 )
 
 type authMode int
@@ -47,6 +49,7 @@ type Client struct {
 	csrfToken string
 
 	mu             sync.Mutex
+	sf             singleflight.Group
 	zoneCache      *cacheEntry[[]FirewallZone]
 	networkCache   *cacheEntry[[]Network]
 	fwPolicyCache  *cacheEntry[[]FirewallPolicy]
@@ -247,26 +250,32 @@ func (c *Client) ListFirewallZones() ([]FirewallZone, error) {
 	}
 	c.mu.Unlock()
 
-	url := fmt.Sprintf("%s/v1/sites/%s/firewall/zones?limit=200", c.BaseURL, c.SiteID)
-	req, _ := http.NewRequest(http.MethodGet, url, nil)
+	v, err, _ := c.sf.Do("fw-zones", func() (interface{}, error) {
+		url := fmt.Sprintf("%s/v1/sites/%s/firewall/zones?limit=200", c.BaseURL, c.SiteID)
+		req, _ := http.NewRequest(http.MethodGet, url, nil)
 
-	body, err := c.doRequest(req)
+		body, err := c.doRequest(req)
+		if err != nil {
+			return nil, err
+		}
+
+		var response struct {
+			Data []FirewallZone `json:"data"`
+		}
+		if err := json.Unmarshal(body, &response); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal firewall zones: %w. response body: %s", err, string(body))
+		}
+
+		c.mu.Lock()
+		c.zoneCache = &cacheEntry[[]FirewallZone]{data: response.Data, expiresAt: time.Now().Add(cacheTTL)}
+		c.mu.Unlock()
+
+		return response.Data, nil
+	})
 	if err != nil {
 		return nil, err
 	}
-
-	var response struct {
-		Data []FirewallZone `json:"data"`
-	}
-	if err := json.Unmarshal(body, &response); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal firewall zones: %w. response body: %s", err, string(body))
-	}
-
-	c.mu.Lock()
-	c.zoneCache = &cacheEntry[[]FirewallZone]{data: response.Data, expiresAt: time.Now().Add(cacheTTL)}
-	c.mu.Unlock()
-
-	return response.Data, nil
+	return v.([]FirewallZone), nil
 }
 
 // Firewall Policies
@@ -371,26 +380,32 @@ func (c *Client) ListFirewallPolicies() ([]FirewallPolicy, error) {
 	}
 	c.mu.Unlock()
 
-	url := fmt.Sprintf("%s/v1/sites/%s/firewall/policies?limit=200", c.BaseURL, c.SiteID)
-	req, _ := http.NewRequest(http.MethodGet, url, nil)
+	v, err, _ := c.sf.Do("fw-policies", func() (interface{}, error) {
+		url := fmt.Sprintf("%s/v1/sites/%s/firewall/policies?limit=200", c.BaseURL, c.SiteID)
+		req, _ := http.NewRequest(http.MethodGet, url, nil)
 
-	body, err := c.doRequest(req)
+		body, err := c.doRequest(req)
+		if err != nil {
+			return nil, err
+		}
+
+		var response struct {
+			Data []FirewallPolicy `json:"data"`
+		}
+		if err := json.Unmarshal(body, &response); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal firewall policies: %w. response body: %s", err, string(body))
+		}
+
+		c.mu.Lock()
+		c.fwPolicyCache = &cacheEntry[[]FirewallPolicy]{data: response.Data, expiresAt: time.Now().Add(cacheTTL)}
+		c.mu.Unlock()
+
+		return response.Data, nil
+	})
 	if err != nil {
 		return nil, err
 	}
-
-	var response struct {
-		Data []FirewallPolicy `json:"data"`
-	}
-	if err := json.Unmarshal(body, &response); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal firewall policies: %w. response body: %s", err, string(body))
-	}
-
-	c.mu.Lock()
-	c.fwPolicyCache = &cacheEntry[[]FirewallPolicy]{data: response.Data, expiresAt: time.Now().Add(cacheTTL)}
-	c.mu.Unlock()
-
-	return response.Data, nil
+	return v.([]FirewallPolicy), nil
 }
 
 func (c *Client) CreateFirewallPolicy(policy FirewallPolicy) (*FirewallPolicy, error) {
@@ -486,26 +501,32 @@ func (c *Client) ListNetworks() ([]Network, error) {
 	}
 	c.mu.Unlock()
 
-	url := fmt.Sprintf("%s/v1/sites/%s/networks?limit=200", c.BaseURL, c.SiteID)
-	req, _ := http.NewRequest(http.MethodGet, url, nil)
+	v, err, _ := c.sf.Do("networks", func() (interface{}, error) {
+		url := fmt.Sprintf("%s/v1/sites/%s/networks?limit=200", c.BaseURL, c.SiteID)
+		req, _ := http.NewRequest(http.MethodGet, url, nil)
 
-	body, err := c.doRequest(req)
+		body, err := c.doRequest(req)
+		if err != nil {
+			return nil, err
+		}
+
+		var response struct {
+			Data []Network `json:"data"`
+		}
+		if err := json.Unmarshal(body, &response); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal networks: %w. response body: %s", err, string(body))
+		}
+
+		c.mu.Lock()
+		c.networkCache = &cacheEntry[[]Network]{data: response.Data, expiresAt: time.Now().Add(cacheTTL)}
+		c.mu.Unlock()
+
+		return response.Data, nil
+	})
 	if err != nil {
 		return nil, err
 	}
-
-	var response struct {
-		Data []Network `json:"data"`
-	}
-	if err := json.Unmarshal(body, &response); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal networks: %w. response body: %s", err, string(body))
-	}
-
-	c.mu.Lock()
-	c.networkCache = &cacheEntry[[]Network]{data: response.Data, expiresAt: time.Now().Add(cacheTTL)}
-	c.mu.Unlock()
-
-	return response.Data, nil
+	return v.([]Network), nil
 }
 
 // DNS Policies
@@ -550,26 +571,32 @@ func (c *Client) ListDNSPolicies(siteID string) ([]DNSPolicy, error) {
 	}
 	c.mu.Unlock()
 
-	url := fmt.Sprintf("%s/v1/sites/%s/dns/policies?limit=200", c.BaseURL, siteID)
-	req, _ := http.NewRequest(http.MethodGet, url, nil)
+	v, err, _ := c.sf.Do("dns-policies", func() (interface{}, error) {
+		url := fmt.Sprintf("%s/v1/sites/%s/dns/policies?limit=200", c.BaseURL, siteID)
+		req, _ := http.NewRequest(http.MethodGet, url, nil)
 
-	body, err := c.doRequest(req)
+		body, err := c.doRequest(req)
+		if err != nil {
+			return nil, err
+		}
+
+		var response struct {
+			Data []DNSPolicy `json:"data"`
+		}
+		if err := json.Unmarshal(body, &response); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal dns policies: %w. response body: %s", err, string(body))
+		}
+
+		c.mu.Lock()
+		c.dnsPolicyCache = &cacheEntry[[]DNSPolicy]{data: response.Data, expiresAt: time.Now().Add(cacheTTL)}
+		c.mu.Unlock()
+
+		return response.Data, nil
+	})
 	if err != nil {
 		return nil, err
 	}
-
-	var response struct {
-		Data []DNSPolicy `json:"data"`
-	}
-	if err := json.Unmarshal(body, &response); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal dns policies: %w. response body: %s", err, string(body))
-	}
-
-	c.mu.Lock()
-	c.dnsPolicyCache = &cacheEntry[[]DNSPolicy]{data: response.Data, expiresAt: time.Now().Add(cacheTTL)}
-	c.mu.Unlock()
-
-	return response.Data, nil
+	return v.([]DNSPolicy), nil
 }
 
 func (c *Client) CreateDNSPolicy(siteID string, policy DNSPolicy) (*DNSPolicy, error) {
