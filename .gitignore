@@ -15,6 +15,9 @@ vendor/
 *.out
 *.test
 
+# Python venvs
+.venv/
+
 # OS/IDE files
 .DS_Store
 .vscode/

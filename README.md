@@ -32,13 +32,15 @@ The provider supports managing firewall rules with extensive filtering capabilit
 - **Scheduling**: Apply rules only during specific times or days.
 - **Smart Defaults**: Automatically handles return traffic logic based on action (Allow/Block).
 
-See the [Firewall Guide](examples/FIREWALL_GUIDE.md) and [examples/firewall_policies.tf](examples/firewall_policies.tf) for detailed usage scenarios including:
+See the [Firewall Guide](docs/guides/FIREWALL_GUIDE.md) and [examples/firewall_policies.tf](examples/firewall_policies.tf) for detailed usage scenarios including:
 - Basic Allow/Block rules
 - Port ranges
 - Complex source/destination combinations
 - Guest isolation
 
 ## Development
+
+For local testing with the mock UniFi API server, see the [Dev Tools Guide](docs/guides/DEV_TOOLS.md).
 
 ### Prerequisites
 
@@ -95,7 +97,7 @@ Alternatively, you can use a `.terraformrc` or `terraform.rc` file to override t
     ```hcl
     provider_installation {
       dev_overrides {
-        "someniak/unifi" = "/Users/darthvader/Library/Mobile Documents/com~apple~CloudDocs/Projects/Repositories/terraform-unifi-firewall"
+        "someniak/unifi" = "/path/to/terraform-unifi-firewall"
       }
       direct {}
     }

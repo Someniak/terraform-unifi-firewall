@@ -1,8 +1,8 @@
 terraform {
   required_providers {
     unifi = {
-      source  = "someniak/unifi"
-      version = "0.0.3"
+      source = "someniak/unifi"
+      # version not needed for local dev — use dev_overrides.tfrc
     }
   }
 }
