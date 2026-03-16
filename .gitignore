@@ -5,7 +5,7 @@ bin/
 # Terraform files
 .terraform/
 .terraform.lock.hcl
-*.tfvars
+terraform.tfvars
 *.tfvars.json
 *.tfstate*
 *.tfrc

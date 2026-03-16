@@ -1,6 +1,6 @@
 # Development & Testing Guide
 
-This provider supports two authentication methods and two test backends. This guide covers how to set up and use each combination.
+This provider supports two authentication methods and two test backends.
 
 ## Authentication Methods
 
@@ -34,9 +34,16 @@ provider "unifi" {
 
 ## Test Backends
 
+Both backends use the same Terraform configs in `examples/`. Switch between them using `-var-file`:
+
+```bash
+terraform plan -var-file=mock.tfvars          # mock API server (API key)
+terraform plan -var-file=integration.tfvars   # Docker UniFi (username/password)
+```
+
 ### 1. Mock API Server (fast, no Docker needed)
 
-A Flask-based mock with a live web dashboard. Accepts both auth methods. Best for rapid development iteration.
+A Flask-based mock with a live web dashboard. Best for rapid development iteration.
 
 **One-time setup:**
 
@@ -57,15 +64,14 @@ python server.py            # --debug for auto-reload
 
 # Terminal 2 — build and test
 make build
-source devtools/use-env.sh mock
 cd examples
-terraform plan
-terraform apply -auto-approve
+export TF_CLI_CONFIG_FILE=dev_overrides.tfrc
+terraform plan -var-file=mock.tfvars
+terraform apply -var-file=mock.tfvars -auto-approve
 ```
 
 - API: http://localhost:5100
 - Dashboard: http://localhost:5100/ui (live updates via SSE)
-- Auth: `api_key = "mock-key"`
 
 ### 2. Integration Environment (real UniFi API, Docker)
 
@@ -79,16 +85,14 @@ Self-hosted UniFi **does not support API keys** — this environment uses userna
 make integration-up         # ~2 min on first run
 ```
 
-This starts the containers, seeds an admin user, and creates test networks.
-
 **Run:**
 
 ```bash
 make build
-source devtools/use-env.sh integration
 cd examples
-terraform plan
-terraform apply -auto-approve
+export TF_CLI_CONFIG_FILE=dev_overrides.tfrc
+terraform plan -var-file=integration.tfvars
+terraform apply -var-file=integration.tfvars -auto-approve
 ```
 
 **Teardown:**
@@ -116,35 +120,13 @@ make integration-down       # stops containers, removes volumes
 
 ---
 
-## Switching Backends
+## Var Files
 
-```bash
-source devtools/use-env.sh mock          # API key auth → mock server
-source devtools/use-env.sh integration   # username/password → Docker UniFi
-```
-
-This script:
-- Loads the `.env` from the selected backend
-- Exports `TF_VAR_*` variables for Terraform
-- Sets `TF_CLI_CONFIG_FILE` for dev overrides (skips registry)
-- Clears previous auth variables so they don't conflict
-
-**Mock `.env` (`devtools/mock-server/.env`):**
-```env
-UNIFI_HOST=http://localhost:5100
-UNIFI_API_KEY=mock-key
-UNIFI_SITE_ID=auto
-UNIFI_INSECURE=true
-```
-
-**Integration `.env` (`devtools/integration/.env`):**
-```env
-UNIFI_HOST=https://localhost:8443
-UNIFI_USERNAME=admin
-UNIFI_PASSWORD=testpassword123
-UNIFI_SITE_ID=default
-UNIFI_INSECURE=true
-```
+| File | Auth | Backend |
+|------|------|---------|
+| `examples/mock.tfvars` | API key | Mock server on localhost:5100 |
+| `examples/integration.tfvars` | Username/password | Docker UniFi on localhost:8443 |
+| `examples/terraform.tfvars` | *your config* | Your real UniFi controller (gitignored) |
 
 ---
 
@@ -157,22 +139,3 @@ UNIFI_INSECURE=true
 **Port conflicts** — Edit `devtools/integration/docker-compose.yml` to change host ports.
 
 **Start fresh** — `make integration-down && make integration-up`
-
----
-
-## File Layout
-
-```
-devtools/
-├── use-env.sh                  # Switch between backends
-├── mock-server/
-│   ├── .env                    # Mock connection vars (API key)
-│   ├── server.py               # Flask mock API + dashboard
-│   └── requirements.txt
-└── integration/
-    ├── .env                    # Integration connection vars (gitignored)
-    ├── docker-compose.yml      # UniFi + MongoDB containers
-    ├── init-mongo.js           # MongoDB user creation (first boot)
-    ├── setup.sh                # Bootstrap: seed admin, create networks
-    └── teardown.sh             # Stop containers, remove volumes
-```

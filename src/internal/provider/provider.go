@@ -67,9 +67,9 @@ func (p *UnifiProvider) Configure(ctx context.Context, req provider.ConfigureReq
 		return
 	}
 
-	hasAPIKey := !data.APIKey.IsNull() && !data.APIKey.IsUnknown()
-	hasUsername := !data.Username.IsNull() && !data.Username.IsUnknown()
-	hasPassword := !data.Password.IsNull() && !data.Password.IsUnknown()
+	hasAPIKey := !data.APIKey.IsNull() && !data.APIKey.IsUnknown() && data.APIKey.ValueString() != ""
+	hasUsername := !data.Username.IsNull() && !data.Username.IsUnknown() && data.Username.ValueString() != ""
+	hasPassword := !data.Password.IsNull() && !data.Password.IsUnknown() && data.Password.ValueString() != ""
 
 	if hasAPIKey && (hasUsername || hasPassword) {
 		resp.Diagnostics.AddError(

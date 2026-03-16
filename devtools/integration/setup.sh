@@ -226,24 +226,9 @@ log ""
 log "UniFi Network Application: $UNIFI_URL"
 log "Admin credentials:         $ADMIN_USER / $ADMIN_PASS"
 log ""
-
-# Write .env with username/password auth (no API key needed)
-cat > .env <<EOF
-UNIFI_HOST=$UNIFI_URL
-UNIFI_USERNAME=$ADMIN_USER
-UNIFI_PASSWORD=$ADMIN_PASS
-UNIFI_SITE_ID=default
-UNIFI_INSECURE=true
-EOF
-
-log "Provider config (using legacy cookie auth):"
+log "To test, run:"
 log ""
-log '  provider "unifi" {'
-log "    host     = \"$UNIFI_URL\""
-log "    username = \"$ADMIN_USER\""
-log "    password = \"$ADMIN_PASS\""
-log '    site_id  = "default"'
-log '    insecure = true'
-log '  }'
-log ""
-log ".env written to devtools/integration/.env"
+log "  make build"
+log "  cd examples"
+log "  export TF_CLI_CONFIG_FILE=dev_overrides.tfrc"
+log "  terraform plan -var-file=integration.tfvars"
