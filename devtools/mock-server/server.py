@@ -584,6 +584,11 @@ DASHBOARD_HTML = """<!DOCTYPE html>
     <div class="card-body"><table><thead><tr><th>ID</th><th>Name</th><th>VLAN</th></tr></thead><tbody id="net-table"></tbody></table></div>
   </div>
 
+  <div class="card">
+    <div class="card-header"><h2>Clients</h2><span class="count" id="client-count">0</span></div>
+    <div class="card-body"><table><thead><tr><th>ID</th><th>MAC</th><th>Name</th><th>Fixed IP</th></tr></thead><tbody id="client-table"></tbody></table></div>
+  </div>
+
   <div class="card full-width event-log">
     <div class="card-header"><h2>Event Log</h2><span class="count" id="event-count">0</span></div>
     <div class="card-body" id="event-body"></div>
@@ -610,6 +615,7 @@ function render(data) {
     <div class="stat"><div class="num">${s.total_dns_policies}</div><div class="label">DNS Policies</div></div>
     <div class="stat"><div class="num">${s.total_zones}</div><div class="label">Zones</div></div>
     <div class="stat"><div class="num">${s.total_networks}</div><div class="label">Networks</div></div>
+    <div class="stat"><div class="num">${s.total_clients}</div><div class="label">Clients</div></div>
   `;
 
   // FW Policies
@@ -657,6 +663,20 @@ function render(data) {
     <td>${n.name}</td>
     <td>${n.vlanId}</td>
   </tr>`).join('');
+
+  // Clients
+  const allClients = Object.values(data.clients).flat();
+  document.getElementById('client-count').textContent = allClients.length;
+  document.getElementById('client-table').innerHTML = allClients.length === 0
+    ? '<tr><td colspan="4" class="empty">No clients. Add entries to the mock store...</td></tr>'
+    : allClients.map((c, i) => `<tr class="expandable" onclick="toggleDetail('client-detail-${i}', this)">
+        <td class="id"><span class="expand-icon" id="client-icon-${i}">&#9654;</span>${c.id}</td>
+        <td class="id">${c.mac}</td>
+        <td>${c.name || '-'}</td>
+        <td>${c.use_fixedip ? c.fixed_ip : '-'}</td>
+      </tr><tr class="detail-row hidden" id="client-detail-${i}">
+        <td colspan="4"><pre>${escapeHtml(JSON.stringify(c, null, 2))}</pre></td>
+      </tr>`).join('');
 
   // Events
   const events = (data.events || []).reverse();
