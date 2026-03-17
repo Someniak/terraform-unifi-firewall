@@ -49,7 +49,7 @@ output "default_ttl_value" {
 # Firewall policy computed values
 output "basic_allow_rule_id" {
   description = "ID of the basic allow rule"
-  value       = unifi_fw.allow_default_to_internet.id
+  value       = unifi_fw.allow_internet.id
 }
 
 # Fixed IP computed values

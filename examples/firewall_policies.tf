@@ -863,3 +863,30 @@ resource "unifi_fw" "block_dest_mac" {
   }
   logging_enabled = true
 }
+
+# 32. IP Address Filter with CIDR Subnet Notation
+# Block an entire subnet from reaching the DMZ (auto-detected as SUBNET type)
+resource "unifi_fw" "block_subnet_to_dmz" {
+  name    = "Block Subnet to DMZ"
+  enabled = true
+  action {
+    type = "BLOCK"
+  }
+  source {
+    zone_id = data.unifi_firewall_zone.default.id
+    traffic_filter {
+      type = "IP_ADDRESS"
+      ip_address_filter {
+        type  = "IP_ADDRESSES"
+        items = ["10.99.0.0/24"]
+      }
+    }
+  }
+  destination {
+    zone_id = data.unifi_firewall_zone.dmz.id
+  }
+  ip_protocol_scope {
+    ip_version = "IPV4"
+  }
+  logging_enabled = true
+}
