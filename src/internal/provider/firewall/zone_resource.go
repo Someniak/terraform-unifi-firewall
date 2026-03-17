@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -93,10 +92,7 @@ func (r *FirewallZoneResource) Create(ctx context.Context, req resource.CreateRe
 		return
 	}
 
-	apiReq := r.zoneToAPI(ctx, plan, &resp.Diagnostics)
-	if resp.Diagnostics.HasError() {
-		return
-	}
+	apiReq := r.zoneToAPI(ctx, plan)
 
 	created, err := r.client.CreateFirewallZone(apiReq)
 	if err != nil {
@@ -104,7 +100,7 @@ func (r *FirewallZoneResource) Create(ctx context.Context, req resource.CreateRe
 		return
 	}
 
-	r.zoneFromAPI(ctx, created, &plan, &resp.Diagnostics)
+	r.zoneFromAPI(ctx, created, &plan)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
@@ -121,7 +117,7 @@ func (r *FirewallZoneResource) Read(ctx context.Context, req resource.ReadReques
 		return
 	}
 
-	r.zoneFromAPI(ctx, zone, &state, &resp.Diagnostics)
+	r.zoneFromAPI(ctx, zone, &state)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
 
@@ -133,10 +129,7 @@ func (r *FirewallZoneResource) Update(ctx context.Context, req resource.UpdateRe
 		return
 	}
 
-	apiReq := r.zoneToAPI(ctx, plan, &resp.Diagnostics)
-	if resp.Diagnostics.HasError() {
-		return
-	}
+	apiReq := r.zoneToAPI(ctx, plan)
 
 	updated, err := r.client.UpdateFirewallZone(state.ID.ValueString(), apiReq)
 	if err != nil {
@@ -144,7 +137,7 @@ func (r *FirewallZoneResource) Update(ctx context.Context, req resource.UpdateRe
 		return
 	}
 
-	r.zoneFromAPI(ctx, updated, &plan, &resp.Diagnostics)
+	r.zoneFromAPI(ctx, updated, &plan)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
@@ -194,10 +187,10 @@ func (r *FirewallZoneResource) ImportState(ctx context.Context, req resource.Imp
 	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), id)...)
 }
 
-func (r *FirewallZoneResource) zoneToAPI(ctx context.Context, model FirewallZoneResourceModel, diags *diag.Diagnostics) unifi.FirewallZoneRequest {
+func (r *FirewallZoneResource) zoneToAPI(ctx context.Context, model FirewallZoneResourceModel) unifi.FirewallZoneRequest {
 	var networkIDs []string
 	if !model.NetworkIDs.IsNull() && !model.NetworkIDs.IsUnknown() {
-		diags.Append(model.NetworkIDs.ElementsAs(ctx, &networkIDs, false)...)
+		model.NetworkIDs.ElementsAs(ctx, &networkIDs, false)
 	}
 	if networkIDs == nil {
 		networkIDs = []string{}
@@ -209,7 +202,7 @@ func (r *FirewallZoneResource) zoneToAPI(ctx context.Context, model FirewallZone
 	}
 }
 
-func (r *FirewallZoneResource) zoneFromAPI(ctx context.Context, zone *unifi.FirewallZone, model *FirewallZoneResourceModel, diags *diag.Diagnostics) {
+func (r *FirewallZoneResource) zoneFromAPI(ctx context.Context, zone *unifi.FirewallZone, model *FirewallZoneResourceModel) {
 	model.ID = types.StringValue(zone.ID)
 	model.Name = types.StringValue(zone.Name)
 
@@ -217,8 +210,7 @@ func (r *FirewallZoneResource) zoneFromAPI(ctx context.Context, zone *unifi.Fire
 	if networkIDs == nil {
 		networkIDs = []string{}
 	}
-	setValue, d := types.SetValueFrom(ctx, types.StringType, networkIDs)
-	diags.Append(d...)
+	setValue, _ := types.SetValueFrom(ctx, types.StringType, networkIDs)
 	model.NetworkIDs = setValue
 
 	if zone.Metadata != nil {

@@ -3,6 +3,7 @@ package firewall
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
@@ -70,7 +71,7 @@ func (d *FirewallZoneDataSource) Read(ctx context.Context, req datasource.ReadRe
 	}
 
 	for _, zone := range zones {
-		if zone.Name == data.Name.ValueString() {
+		if strings.EqualFold(zone.Name, data.Name.ValueString()) {
 			data.ID = types.StringValue(zone.ID)
 			break
 		}
