@@ -775,3 +775,91 @@ resource "unifi_fw" "block_to_dmz_network" {
   }
   logging_enabled = true
 }
+
+# 29. Source Port Filtering
+# Block traffic originating from high ports on IoT devices
+resource "unifi_fw" "block_iot_high_source_ports" {
+  name    = "Block IoT High Source Ports"
+  enabled = true
+  action {
+    type = "BLOCK"
+  }
+  source {
+    zone_id = data.unifi_firewall_zone.iot.id
+    traffic_filter {
+      type = "PORT"
+      port_filter {
+        type = "PORTS"
+        items {
+          type  = "PORT_NUMBER_RANGE"
+          start = 49152
+          stop  = 65535
+        }
+      }
+    }
+  }
+  destination {
+    zone_id = data.unifi_firewall_zone.internet.id
+  }
+  ip_protocol_scope {
+    ip_version = "IPV4"
+    protocol_filter {
+      type     = "PROTOCOL"
+      protocol = "tcp"
+    }
+  }
+  logging_enabled = true
+}
+
+# 30. Source Domain Filtering
+# Block traffic originating from specific internal domains
+resource "unifi_fw" "block_source_domains" {
+  name    = "Block Source Domains"
+  enabled = true
+  action {
+    type = "BLOCK"
+  }
+  source {
+    zone_id = data.unifi_firewall_zone.default.id
+    traffic_filter {
+      type = "DOMAIN"
+      domain_filter {
+        items = ["malware.internal.lan", "compromised.internal.lan"]
+      }
+    }
+  }
+  destination {
+    zone_id = data.unifi_firewall_zone.internet.id
+  }
+  ip_protocol_scope {
+    ip_version = "IPV4"
+  }
+  logging_enabled = true
+}
+
+# 31. Destination MAC Address Filtering
+# Block traffic to a specific destination MAC address
+resource "unifi_fw" "block_dest_mac" {
+  name    = "Block Destination MAC"
+  enabled = true
+  action {
+    type = "BLOCK"
+  }
+  source {
+    zone_id = data.unifi_firewall_zone.default.id
+  }
+  destination {
+    zone_id = data.unifi_firewall_zone.iot.id
+    traffic_filter {
+      type = "MAC_ADDRESS"
+      mac_address_filter {
+        type  = "MAC_ADDRESSES"
+        items = ["AA:BB:CC:DD:EE:FF"]
+      }
+    }
+  }
+  ip_protocol_scope {
+    ip_version = "IPV4"
+  }
+  logging_enabled = true
+}

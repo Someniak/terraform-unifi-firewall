@@ -74,3 +74,10 @@ resource "unifi_dns" "test_disabled_record" {
   ttl        = 300
   ip_address = "192.168.1.1"
 }
+
+# A Record with default TTL (omitted, uses computed default)
+resource "unifi_dns" "test_default_ttl" {
+  type       = "A_RECORD"
+  domain     = "default-ttl.example.com"
+  ip_address = "10.0.0.1"
+}
