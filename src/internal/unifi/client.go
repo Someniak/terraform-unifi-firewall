@@ -872,6 +872,165 @@ func (c *Client) DeleteDNSPolicy(siteID, policyId string) error {
 	return err
 }
 
+// ACL Rules
+type ACLRule struct {
+	ID                    string           `json:"id,omitempty"`
+	Type                  string           `json:"type"`                            // IPV4, MAC
+	Name                  string           `json:"name"`
+	Description           string           `json:"description,omitempty"`
+	Enabled               bool             `json:"enabled"`
+	Action                string           `json:"action"`                          // ALLOW, BLOCK
+	Index                 int              `json:"index,omitempty"`
+	ProtocolFilter        []string         `json:"protocolFilter,omitempty"`
+	NetworkID             string           `json:"networkId,omitempty"`
+	EnforcingDeviceFilter *ACLDeviceFilter `json:"enforcingDeviceFilter,omitempty"`
+	SourceFilter          *ACLFilter       `json:"sourceFilter,omitempty"`
+	DestinationFilter     *ACLFilter       `json:"destinationFilter,omitempty"`
+}
+
+type ACLDeviceFilter struct {
+	DeviceIDs []string `json:"deviceIds"`
+}
+
+type ACLFilter struct {
+	Type                 string   `json:"type,omitempty"`
+	IPAddressesOrSubnets []string `json:"ipAddressesOrSubnets,omitempty"`
+	PortFilter           []int    `json:"portFilter,omitempty"`
+	NetworkIDs           []string `json:"networkIds,omitempty"`
+	MACAddresses         []string `json:"macAddresses,omitempty"`
+}
+
+func (c *Client) ListACLRules() ([]ACLRule, error) {
+	var allRules []ACLRule
+	offset := 0
+	const pageSize = 200
+
+	for {
+		url := fmt.Sprintf("%s/v1/sites/%s/acl-rules?limit=%d&offset=%d", c.BaseURL, c.SiteID, pageSize, offset)
+		req, _ := http.NewRequest(http.MethodGet, url, nil)
+
+		body, err := c.doRequest(req)
+		if err != nil {
+			return nil, err
+		}
+
+		var response struct {
+			Data []ACLRule `json:"data"`
+		}
+		if err := json.Unmarshal(body, &response); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal ACL rules: %w. response body: %s", err, string(body))
+		}
+
+		allRules = append(allRules, response.Data...)
+		if len(response.Data) < pageSize {
+			break
+		}
+		offset += pageSize
+	}
+
+	return allRules, nil
+}
+
+func (c *Client) GetACLRule(ruleID string) (*ACLRule, error) {
+	url := fmt.Sprintf("%s/v1/sites/%s/acl-rules/%s", c.BaseURL, c.SiteID, ruleID)
+	req, _ := http.NewRequest(http.MethodGet, url, nil)
+
+	body, err := c.doRequest(req)
+	if err != nil {
+		return nil, err
+	}
+
+	var result ACLRule
+	if err := json.Unmarshal(body, &result); err != nil {
+		return nil, err
+	}
+
+	return &result, nil
+}
+
+func (c *Client) CreateACLRule(rule ACLRule) (*ACLRule, error) {
+	url := fmt.Sprintf("%s/v1/sites/%s/acl-rules", c.BaseURL, c.SiteID)
+	payload, _ := json.Marshal(rule)
+	req, _ := http.NewRequest(http.MethodPost, url, bytes.NewBuffer(payload))
+
+	body, err := c.doRequest(req)
+	if err != nil {
+		return nil, err
+	}
+
+	var result ACLRule
+	if err := json.Unmarshal(body, &result); err != nil {
+		return nil, err
+	}
+
+	return &result, nil
+}
+
+func (c *Client) UpdateACLRule(ruleID string, rule ACLRule) (*ACLRule, error) {
+	url := fmt.Sprintf("%s/v1/sites/%s/acl-rules/%s", c.BaseURL, c.SiteID, ruleID)
+	payload, _ := json.Marshal(rule)
+	req, _ := http.NewRequest(http.MethodPut, url, bytes.NewBuffer(payload))
+
+	body, err := c.doRequest(req)
+	if err != nil {
+		return nil, err
+	}
+
+	var result ACLRule
+	if err := json.Unmarshal(body, &result); err != nil {
+		return nil, err
+	}
+
+	return &result, nil
+}
+
+func (c *Client) DeleteACLRule(ruleID string) error {
+	url := fmt.Sprintf("%s/v1/sites/%s/acl-rules/%s", c.BaseURL, c.SiteID, ruleID)
+	req, _ := http.NewRequest(http.MethodDelete, url, nil)
+	_, err := c.doRequest(req)
+	return err
+}
+
+// ACL Rule Ordering
+type ACLRuleOrdering struct {
+	RuleIDs []string `json:"ruleIds"`
+}
+
+func (c *Client) GetACLRuleOrdering() ([]string, error) {
+	url := fmt.Sprintf("%s/v1/sites/%s/acl-rules/ordering", c.BaseURL, c.SiteID)
+	req, _ := http.NewRequest(http.MethodGet, url, nil)
+
+	body, err := c.doRequest(req)
+	if err != nil {
+		return nil, err
+	}
+
+	var result []string
+	if err := json.Unmarshal(body, &result); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal ACL rule ordering: %w. response body: %s", err, string(body))
+	}
+
+	return result, nil
+}
+
+func (c *Client) UpdateACLRuleOrdering(ordering ACLRuleOrdering) ([]string, error) {
+	url := fmt.Sprintf("%s/v1/sites/%s/acl-rules/ordering", c.BaseURL, c.SiteID)
+	payload, _ := json.Marshal(ordering)
+	req, _ := http.NewRequest(http.MethodPut, url, bytes.NewBuffer(payload))
+
+	body, err := c.doRequest(req)
+	if err != nil {
+		return nil, err
+	}
+
+	var result []string
+	if err := json.Unmarshal(body, &result); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal ACL rule ordering: %w. response body: %s", err, string(body))
+	}
+
+	return result, nil
+}
+
 // Client Devices (for fixed IP / DHCP reservations)
 //
 // Client operations use the legacy REST API (/api/s/{site}/rest/user) instead

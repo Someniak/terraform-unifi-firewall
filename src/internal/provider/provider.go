@@ -9,6 +9,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/provider/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/types"
+	"github.com/someniak/terraform-provider-unifi-firewall/src/internal/provider/acl"
 	"github.com/someniak/terraform-provider-unifi-firewall/src/internal/provider/firewall"
 	"github.com/someniak/terraform-provider-unifi-firewall/src/internal/provider/fixedip"
 	"github.com/someniak/terraform-provider-unifi-firewall/src/internal/unifi"
@@ -145,6 +146,8 @@ func (p *UnifiProvider) Resources(ctx context.Context) []func() resource.Resourc
 		firewall.NewFirewallPolicyOrderingResource,
 		firewall.NewFirewallZoneResource,
 		firewall.NewDNSPolicyResource,
+		acl.NewACLRuleResource,
+		acl.NewACLRuleOrderingResource,
 		fixedip.NewFixedIPResource,
 	}
 }
