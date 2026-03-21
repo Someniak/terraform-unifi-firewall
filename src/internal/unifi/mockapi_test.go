@@ -24,6 +24,13 @@ type mockUnifiAPI struct {
 	fwPolicies  map[string][]FirewallPolicy // keyed by siteID
 	dnsPolicies map[string][]DNSPolicy      // keyed by siteID
 	clients     map[string][]ClientDevice   // keyed by siteID
+	aclRules    map[string][]ACLRule        // keyed by siteID
+	trafficLists map[string][]TrafficMatchingList // keyed by siteID
+
+	// fwPolicyOrdering stores the policy ordering per siteID
+	fwPolicyOrdering map[string][]string
+	// aclRuleOrdering stores the ACL rule ordering per siteID
+	aclRuleOrdering map[string][]string
 
 	nextID int
 
@@ -56,6 +63,10 @@ func newMockServer(t *testing.T) (*httptest.Server, *mockUnifiAPI) {
 		},
 		fwPolicies:  map[string][]FirewallPolicy{},
 		dnsPolicies: map[string][]DNSPolicy{},
+		aclRules:    map[string][]ACLRule{},
+		trafficLists: map[string][]TrafficMatchingList{},
+		fwPolicyOrdering: map[string][]string{},
+		aclRuleOrdering: map[string][]string{},
 		clients: map[string][]ClientDevice{
 			"site-1": {
 				{ID: "client-1", MAC: "00:11:22:33:44:55", Name: "server1"},
@@ -209,12 +220,15 @@ func (m *mockUnifiAPI) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	siteID := parts[0]
 
-	// Route: firewall zones
-	if len(parts) == 3 && parts[1] == "firewall" && parts[2] == "zones" && method == http.MethodGet {
-		m.mu.Lock()
-		zones := m.zones[siteID]
-		m.mu.Unlock()
-		json.NewEncoder(w).Encode(map[string]interface{}{"data": zones})
+	// Route: firewall zones collection
+	if len(parts) == 3 && parts[1] == "firewall" && parts[2] == "zones" {
+		m.handleFirewallZones(w, r, siteID)
+		return
+	}
+
+	// Route: firewall zones single item
+	if len(parts) == 4 && parts[1] == "firewall" && parts[2] == "zones" {
+		m.handleFirewallZone(w, r, siteID, parts[3])
 		return
 	}
 
@@ -224,6 +238,12 @@ func (m *mockUnifiAPI) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		networks := m.networks[siteID]
 		m.mu.Unlock()
 		json.NewEncoder(w).Encode(map[string]interface{}{"data": networks})
+		return
+	}
+
+	// Route: firewall policy ordering
+	if len(parts) == 4 && parts[1] == "firewall" && parts[2] == "policies" && parts[3] == "ordering" {
+		m.handleFWPolicyOrdering(w, r, siteID)
 		return
 	}
 
@@ -248,6 +268,36 @@ func (m *mockUnifiAPI) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// Route: DNS policies single item
 	if len(parts) == 4 && parts[1] == "dns" && parts[2] == "policies" {
 		m.handleDNSPolicy(w, r, siteID, parts[3])
+		return
+	}
+
+	// Route: ACL rule ordering
+	if len(parts) == 3 && parts[1] == "acl-rules" && parts[2] == "ordering" {
+		m.handleACLRuleOrdering(w, r, siteID)
+		return
+	}
+
+	// Route: ACL rules collection
+	if len(parts) == 2 && parts[1] == "acl-rules" {
+		m.handleACLRules(w, r, siteID)
+		return
+	}
+
+	// Route: ACL rules single item
+	if len(parts) == 3 && parts[1] == "acl-rules" {
+		m.handleACLRule(w, r, siteID, parts[2])
+		return
+	}
+
+	// Route: traffic matching lists collection
+	if len(parts) == 2 && parts[1] == "traffic-matching-lists" {
+		m.handleTrafficLists(w, r, siteID)
+		return
+	}
+
+	// Route: traffic matching lists single item
+	if len(parts) == 3 && parts[1] == "traffic-matching-lists" {
+		m.handleTrafficList(w, r, siteID, parts[2])
 		return
 	}
 
@@ -310,6 +360,19 @@ func (m *mockUnifiAPI) handleFWPolicy(w http.ResponseWriter, r *http.Request, si
 		}
 		m.fwPolicies[siteID][idx] = policy
 		json.NewEncoder(w).Encode(policy)
+	case http.MethodPatch:
+		if idx == -1 {
+			w.WriteHeader(http.StatusNotFound)
+			json.NewEncoder(w).Encode(map[string]string{"error": "not found"})
+			return
+		}
+		body, _ := io.ReadAll(r.Body)
+		var patch FirewallPolicyPatch
+		json.Unmarshal(body, &patch)
+		if patch.LoggingEnabled != nil {
+			m.fwPolicies[siteID][idx].LoggingEnabled = *patch.LoggingEnabled
+		}
+		json.NewEncoder(w).Encode(m.fwPolicies[siteID][idx])
 	case http.MethodDelete:
 		if idx == -1 {
 			w.WriteHeader(http.StatusNotFound)
@@ -457,6 +520,266 @@ func (m *mockUnifiAPI) handleRestClient(w http.ResponseWriter, r *http.Request, 
 		}
 		m.clients[siteID][idx] = update
 		m.restOK(w, []ClientDevice{update})
+	default:
+		w.WriteHeader(http.StatusMethodNotAllowed)
+	}
+}
+
+// --- Firewall Zone CRUD handlers ---
+
+func (m *mockUnifiAPI) handleFirewallZones(w http.ResponseWriter, r *http.Request, siteID string) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	switch r.Method {
+	case http.MethodGet:
+		zones := m.zones[siteID]
+		if zones == nil {
+			zones = []FirewallZone{}
+		}
+		json.NewEncoder(w).Encode(map[string]interface{}{"data": zones})
+	case http.MethodPost:
+		body, _ := io.ReadAll(r.Body)
+		var zone FirewallZone
+		json.Unmarshal(body, &zone)
+		zone.ID = m.genID()
+		m.zones[siteID] = append(m.zones[siteID], zone)
+		w.WriteHeader(http.StatusCreated)
+		json.NewEncoder(w).Encode(zone)
+	default:
+		w.WriteHeader(http.StatusMethodNotAllowed)
+	}
+}
+
+func (m *mockUnifiAPI) handleFirewallZone(w http.ResponseWriter, r *http.Request, siteID, zoneID string) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	zones := m.zones[siteID]
+	idx := -1
+	for i, z := range zones {
+		if z.ID == zoneID {
+			idx = i
+			break
+		}
+	}
+
+	switch r.Method {
+	case http.MethodGet:
+		if idx == -1 {
+			w.WriteHeader(http.StatusNotFound)
+			json.NewEncoder(w).Encode(map[string]string{"error": "not found"})
+			return
+		}
+		json.NewEncoder(w).Encode(zones[idx])
+	case http.MethodPut:
+		if idx == -1 {
+			w.WriteHeader(http.StatusNotFound)
+			json.NewEncoder(w).Encode(map[string]string{"error": "not found"})
+			return
+		}
+		body, _ := io.ReadAll(r.Body)
+		var zone FirewallZone
+		json.Unmarshal(body, &zone)
+		zone.ID = zoneID
+		m.zones[siteID][idx] = zone
+		json.NewEncoder(w).Encode(zone)
+	case http.MethodDelete:
+		if idx == -1 {
+			w.WriteHeader(http.StatusNotFound)
+			json.NewEncoder(w).Encode(map[string]string{"error": "not found"})
+			return
+		}
+		m.zones[siteID] = append(zones[:idx], zones[idx+1:]...)
+		w.WriteHeader(http.StatusOK)
+	default:
+		w.WriteHeader(http.StatusMethodNotAllowed)
+	}
+}
+
+// --- Firewall Policy Ordering handlers ---
+
+func (m *mockUnifiAPI) handleFWPolicyOrdering(w http.ResponseWriter, r *http.Request, siteID string) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	switch r.Method {
+	case http.MethodGet:
+		ordering := m.fwPolicyOrdering[siteID]
+		if ordering == nil {
+			ordering = []string{}
+		}
+		json.NewEncoder(w).Encode(ordering)
+	case http.MethodPut:
+		body, _ := io.ReadAll(r.Body)
+		var req FirewallPolicyOrdering
+		json.Unmarshal(body, &req)
+		m.fwPolicyOrdering[siteID] = req.PolicyIDs
+		json.NewEncoder(w).Encode(req.PolicyIDs)
+	default:
+		w.WriteHeader(http.StatusMethodNotAllowed)
+	}
+}
+
+// --- ACL Rule CRUD handlers ---
+
+func (m *mockUnifiAPI) handleACLRules(w http.ResponseWriter, r *http.Request, siteID string) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	switch r.Method {
+	case http.MethodGet:
+		rules := m.aclRules[siteID]
+		if rules == nil {
+			rules = []ACLRule{}
+		}
+		json.NewEncoder(w).Encode(map[string]interface{}{"data": rules})
+	case http.MethodPost:
+		body, _ := io.ReadAll(r.Body)
+		var rule ACLRule
+		json.Unmarshal(body, &rule)
+		rule.ID = m.genID()
+		m.aclRules[siteID] = append(m.aclRules[siteID], rule)
+		json.NewEncoder(w).Encode(rule)
+	default:
+		w.WriteHeader(http.StatusMethodNotAllowed)
+	}
+}
+
+func (m *mockUnifiAPI) handleACLRule(w http.ResponseWriter, r *http.Request, siteID, ruleID string) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	rules := m.aclRules[siteID]
+	idx := -1
+	for i, rule := range rules {
+		if rule.ID == ruleID {
+			idx = i
+			break
+		}
+	}
+
+	switch r.Method {
+	case http.MethodGet:
+		if idx == -1 {
+			w.WriteHeader(http.StatusNotFound)
+			json.NewEncoder(w).Encode(map[string]string{"error": "not found"})
+			return
+		}
+		json.NewEncoder(w).Encode(rules[idx])
+	case http.MethodPut:
+		if idx == -1 {
+			w.WriteHeader(http.StatusNotFound)
+			json.NewEncoder(w).Encode(map[string]string{"error": "not found"})
+			return
+		}
+		body, _ := io.ReadAll(r.Body)
+		var rule ACLRule
+		json.Unmarshal(body, &rule)
+		rule.ID = ruleID
+		m.aclRules[siteID][idx] = rule
+		json.NewEncoder(w).Encode(rule)
+	case http.MethodDelete:
+		if idx == -1 {
+			w.WriteHeader(http.StatusNotFound)
+			json.NewEncoder(w).Encode(map[string]string{"error": "not found"})
+			return
+		}
+		m.aclRules[siteID] = append(rules[:idx], rules[idx+1:]...)
+		w.WriteHeader(http.StatusOK)
+	default:
+		w.WriteHeader(http.StatusMethodNotAllowed)
+	}
+}
+
+func (m *mockUnifiAPI) handleACLRuleOrdering(w http.ResponseWriter, r *http.Request, siteID string) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	switch r.Method {
+	case http.MethodGet:
+		ordering := m.aclRuleOrdering[siteID]
+		if ordering == nil {
+			ordering = []string{}
+		}
+		json.NewEncoder(w).Encode(ordering)
+	case http.MethodPut:
+		body, _ := io.ReadAll(r.Body)
+		var req ACLRuleOrdering
+		json.Unmarshal(body, &req)
+		m.aclRuleOrdering[siteID] = req.RuleIDs
+		json.NewEncoder(w).Encode(req.RuleIDs)
+	default:
+		w.WriteHeader(http.StatusMethodNotAllowed)
+	}
+}
+
+// --- Traffic Matching List CRUD handlers ---
+
+func (m *mockUnifiAPI) handleTrafficLists(w http.ResponseWriter, r *http.Request, siteID string) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	switch r.Method {
+	case http.MethodGet:
+		lists := m.trafficLists[siteID]
+		if lists == nil {
+			lists = []TrafficMatchingList{}
+		}
+		json.NewEncoder(w).Encode(map[string]interface{}{"data": lists})
+	case http.MethodPost:
+		body, _ := io.ReadAll(r.Body)
+		var list TrafficMatchingList
+		json.Unmarshal(body, &list)
+		list.ID = m.genID()
+		m.trafficLists[siteID] = append(m.trafficLists[siteID], list)
+		json.NewEncoder(w).Encode(list)
+	default:
+		w.WriteHeader(http.StatusMethodNotAllowed)
+	}
+}
+
+func (m *mockUnifiAPI) handleTrafficList(w http.ResponseWriter, r *http.Request, siteID, listID string) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	lists := m.trafficLists[siteID]
+	idx := -1
+	for i, l := range lists {
+		if l.ID == listID {
+			idx = i
+			break
+		}
+	}
+
+	switch r.Method {
+	case http.MethodGet:
+		if idx == -1 {
+			w.WriteHeader(http.StatusNotFound)
+			json.NewEncoder(w).Encode(map[string]string{"error": "not found"})
+			return
+		}
+		json.NewEncoder(w).Encode(lists[idx])
+	case http.MethodPut:
+		if idx == -1 {
+			w.WriteHeader(http.StatusNotFound)
+			json.NewEncoder(w).Encode(map[string]string{"error": "not found"})
+			return
+		}
+		body, _ := io.ReadAll(r.Body)
+		var list TrafficMatchingList
+		json.Unmarshal(body, &list)
+		list.ID = listID
+		m.trafficLists[siteID][idx] = list
+		json.NewEncoder(w).Encode(list)
+	case http.MethodDelete:
+		if idx == -1 {
+			w.WriteHeader(http.StatusNotFound)
+			json.NewEncoder(w).Encode(map[string]string{"error": "not found"})
+			return
+		}
+		m.trafficLists[siteID] = append(lists[:idx], lists[idx+1:]...)
+		w.WriteHeader(http.StatusOK)
 	default:
 		w.WriteHeader(http.StatusMethodNotAllowed)
 	}
