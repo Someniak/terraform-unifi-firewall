@@ -8,6 +8,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/boolplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -66,6 +67,13 @@ func (r *FixedIPResource) Schema(ctx context.Context, req resource.SchemaRequest
 					stringplanmodifier.UseStateForUnknown(),
 				},
 			},
+			"created_by_provider": schema.BoolAttribute{
+				Computed:            true,
+				MarkdownDescription: "Whether the provider created the underlying client record because the MAC was not yet known to the controller. When true, destroying the resource fully removes the record; otherwise only the reservation is cleared.",
+				PlanModifiers: []planmodifier.Bool{
+					boolplanmodifier.UseStateForUnknown(),
+				},
+			},
 		},
 	}
 }
@@ -114,27 +122,47 @@ func (r *FixedIPResource) Create(ctx context.Context, req resource.CreateRequest
 		}
 	}
 
-	if clientID == "" {
-		resp.Diagnostics.AddError(
-			"Client not found",
-			fmt.Sprintf("No client found with MAC address %q. The device must be known to the UniFi controller.", mac),
-		)
-		return
+	name := plan.Name.ValueString()
+
+	// When the MAC is not already known to the controller, create a bare
+	// known-client record for it first. The legacy REST API stores this record
+	// independently of whether the device has ever connected, which is how a
+	// reservation can be declared for a device that has not yet appeared.
+	createdByProvider := clientID == ""
+	if createdByProvider {
+		recordName := name
+		if recordName == "" {
+			recordName = mac
+		}
+		dev, err := r.client.CreateUser(siteID, mac, recordName)
+		if err != nil {
+			resp.Diagnostics.AddError(
+				"Error creating client record",
+				fmt.Sprintf("MAC address %q was not known to the controller and creating a record for it failed: %s", mac, err.Error()),
+			)
+			return
+		}
+		clientID = dev.ID
+		clientName = dev.Name
 	}
 
-	name := plan.Name.ValueString()
 	if name == "" {
 		name = clientName
 	}
 
 	dev, err := r.client.SetClientFixedIP(siteID, clientID, plan.NetworkID.ValueString(), plan.FixedIP.ValueString(), name)
 	if err != nil {
+		// If we created the record in this call, don't leave it orphaned.
+		if createdByProvider {
+			_ = r.client.ForgetClient(siteID, mac)
+		}
 		resp.Diagnostics.AddError("Error setting fixed IP", err.Error())
 		return
 	}
 
 	plan.ID = types.StringValue(dev.ID)
 	plan.Name = types.StringValue(dev.Name)
+	plan.CreatedByProvider = types.BoolValue(createdByProvider)
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
@@ -198,6 +226,16 @@ func (r *FixedIPResource) Delete(ctx context.Context, req resource.DeleteRequest
 	}
 
 	siteID := r.client.SiteID
+
+	// If the provider created the underlying record for a previously-unknown
+	// MAC, fully forget it so we don't leave an orphaned client entry behind.
+	// Otherwise the device pre-existed, so only clear the reservation.
+	if state.CreatedByProvider.ValueBool() {
+		if err := r.client.ForgetClient(siteID, state.MAC.ValueString()); err != nil {
+			resp.Diagnostics.AddError("Error removing client record", err.Error())
+		}
+		return
+	}
 
 	err := r.client.UnsetClientFixedIP(siteID, state.ID.ValueString())
 	if err != nil {

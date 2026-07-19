@@ -754,6 +754,45 @@ func (c *Client) restUserURL(objectID ...string) string {
 	return base
 }
 
+// CreateUser creates a bare known-client record (a "user" object) for a MAC
+// address that has never connected. The legacy REST API reads from MongoDB, so
+// the record exists independently of whether the device is currently online.
+// This lets a fixed-IP reservation be declared before the device ever appears.
+// usergroup_id is intentionally omitted — the controller accepts the create
+// without it.
+func (c *Client) CreateUser(_ string, mac, name string) (*ClientDevice, error) {
+	url := c.restUserURL()
+	newUser := ClientDevice{
+		MAC:  mac,
+		Name: name,
+	}
+	payload, _ := json.Marshal(newUser)
+	req, _ := http.NewRequest(http.MethodPost, url, bytes.NewBuffer(payload))
+
+	body, err := c.doRequest(req)
+	if err != nil {
+		return nil, err
+	}
+
+	var resp restAPIResponse
+	if err := json.Unmarshal(body, &resp); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal created user: %w. response body: %s", err, string(body))
+	}
+	if resp.Meta.RC != "ok" {
+		return nil, fmt.Errorf("REST API error: %s", resp.Meta.Msg)
+	}
+
+	var clients []ClientDevice
+	if err := json.Unmarshal(resp.Data, &clients); err != nil {
+		return nil, err
+	}
+	if len(clients) == 0 {
+		return nil, fmt.Errorf("no client returned after create")
+	}
+
+	return &clients[0], nil
+}
+
 func (c *Client) ListClients(_ string) ([]ClientDevice, error) {
 	url := c.restUserURL()
 	req, _ := http.NewRequest(http.MethodGet, url, nil)
@@ -849,6 +888,23 @@ func (c *Client) UnsetClientFixedIP(_ string, clientID string) error {
 	}
 	payload, _ := json.Marshal(update)
 	req, _ := http.NewRequest(http.MethodPut, url, bytes.NewBuffer(payload))
+
+	_, err := c.doRequest(req)
+	return err
+}
+
+// ForgetClient fully removes a known-client record by MAC. The legacy REST API
+// does not support DELETE on /rest/user/{id} (it returns 404), so removal goes
+// through the forget-sta command instead. Used to clean up records the provider
+// itself created for offline MACs, rather than leaving an orphaned entry.
+func (c *Client) ForgetClient(_ string, mac string) error {
+	url := fmt.Sprintf("%s/api/s/%s/cmd/stamgr", c.networkBaseURL(), c.SiteReference)
+	cmd := map[string]interface{}{
+		"cmd":  "forget-sta",
+		"macs": []string{mac},
+	}
+	payload, _ := json.Marshal(cmd)
+	req, _ := http.NewRequest(http.MethodPost, url, bytes.NewBuffer(payload))
 
 	_, err := c.doRequest(req)
 	return err

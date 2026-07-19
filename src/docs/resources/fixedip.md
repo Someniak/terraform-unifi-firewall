@@ -7,7 +7,7 @@ description: |-
 
 # unifi_fixedip (Resource)
 
-Manages a fixed IP (DHCP reservation) for a UniFi client device. The device must already be known to the UniFi controller (i.e., it must have connected at least once).
+Manages a fixed IP (DHCP reservation) for a UniFi client device. The device does not need to have connected before: if the MAC is not yet known to the controller, the provider creates a client record for it so the reservation can be declared ahead of time. When the resource is destroyed, records the provider created are fully removed, while reservations on pre-existing devices only have the fixed IP cleared.
 
 ## Example Usage
 
@@ -36,6 +36,7 @@ resource "unifi_fixedip" "server" {
 ### Read-Only
 
 - `id` (String) The UniFi client ID.
+- `created_by_provider` (Boolean) Whether the provider created the underlying client record because the MAC was not yet known to the controller. When `true`, destroying the resource fully removes the record; otherwise only the reservation is cleared.
 
 ## Import
 
