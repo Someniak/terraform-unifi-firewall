@@ -98,7 +98,9 @@ cat > "$LOGIN_PAYLOAD" <<LOGINEOF
 LOGINEOF
 LOGIN_RESULT=$(curl -ks -X POST -c "$COOKIE_FILE" -b "$COOKIE_FILE" -D "$LOGIN_HEADERS" \
     -H "Content-Type: application/json" -d @"$LOGIN_PAYLOAD" "${UNIFI_URL}/api/auth/login" 2>&1)
-CSRF_TOKEN=$(grep -i '^x-csrf-token:' "$LOGIN_HEADERS" | tr -d '\r' | awk '{print $2}')
+# Don't let a missing header abort the script under `set -e`/`pipefail`:
+# on a failed/locked login there is no x-csrf-token header, so grep exits 1.
+CSRF_TOKEN=$(grep -i '^x-csrf-token:' "$LOGIN_HEADERS" | tr -d '\r' | awk '{print $2}' || true)
 rm -f "$LOGIN_HEADERS" "$LOGIN_PAYLOAD"
 
 if echo "$LOGIN_RESULT" | grep -qE '"unique_id"|"userId"'; then
