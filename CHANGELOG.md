@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## [Unreleased]
+## [0.7.0] - 2026-07-20
 
 ### Added
 - `unifi_fixedip` supports reservations for devices that have never connected: the provider creates the client record when the MAC is unknown, and a `created_by_provider` attribute controls whether destroy fully removes the record or only clears the reservation.
